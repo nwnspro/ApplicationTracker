@@ -13,6 +13,9 @@ interface TodoListProps {
   onApplied: (url: string, companyName: string) => void;
 }
 
+// API URL from environment variable
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
 // LocalStorage key
 const TODOS_STORAGE_KEY = "job_tracker_todos";
 
@@ -49,7 +52,7 @@ export function TodoList({ onApplied }: TodoListProps) {
 
   const fetchTodosFromAPI = async (token: string) => {
     try {
-      const response = await fetch("http://localhost:3001/api/todos", {
+      const response = await fetch(`${API_URL}/api/todos`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -150,7 +153,7 @@ export function TodoList({ onApplied }: TodoListProps) {
         if (!token) return;
 
         const response = await fetch(
-          `http://localhost:3001/api/todos/${id}/complete`,
+          `${API_URL}/api/todos/${id}/complete`,
           {
             method: "POST",
             headers: {

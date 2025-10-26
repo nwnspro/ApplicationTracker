@@ -6,6 +6,8 @@ import { Header } from "./components/Header";
 import { Content } from "./components/Content";
 import { authClient } from "./lib/auth.client";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
 function App() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "stats" | "todos">(
@@ -79,7 +81,7 @@ function App() {
 
       if (token) {
         // If logged in, also add to API
-        const response = await fetch("http://localhost:3001/api/todos", {
+        const response = await fetch(`${API_URL}/api/todos`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

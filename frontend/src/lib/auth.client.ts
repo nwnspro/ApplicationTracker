@@ -1,13 +1,16 @@
 import { createAuthClient } from "better-auth/client";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const FRONTEND_URL = window.location.origin;
+
 export const authClient = createAuthClient({
-  baseURL: "http://localhost:3001", // 后端服务器地址
+  baseURL: API_URL,
 });
 
 export async function signInWithGoogle() {
   return authClient.signIn.social({
     provider: "google",
-    callbackURL: "http://localhost:5173/",
+    callbackURL: FRONTEND_URL,
   });
 }
 

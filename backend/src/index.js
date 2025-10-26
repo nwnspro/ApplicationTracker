@@ -19,9 +19,13 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // CORS Configuration
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',')
+  : ["http://localhost:5173"];
+
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
@@ -64,7 +68,8 @@ app.get("/health", (req, res) => {
 
 // Redirect root to frontend
 app.get("/", (req, res) => {
-  res.redirect("http://localhost:5173");
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  res.redirect(frontendUrl);
 });
 
 // API routes
