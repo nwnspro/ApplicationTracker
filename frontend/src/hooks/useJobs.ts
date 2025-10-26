@@ -225,7 +225,8 @@ export function useJobs(currentTable: string = "Table 1") {
       return { previousJobs };
     },
     // If mutation fails, rollback
-    onError: (err, variables, context) => {
+    onError: (error, _variables, context) => {
+      console.error("Failed to update job", error);
       if (context?.previousJobs) {
         queryClient.setQueryData(["jobs"], context.previousJobs);
       }
@@ -257,7 +258,8 @@ export function useJobs(currentTable: string = "Table 1") {
       return { previousJobs };
     },
     // If mutation fails, rollback to the previous value
-    onError: (err, deletedId, context) => {
+    onError: (error, _deletedId, context) => {
+      console.error("Failed to delete job", error);
       if (context?.previousJobs) {
         queryClient.setQueryData(["jobs"], context.previousJobs);
       }

@@ -22,6 +22,7 @@
 
     /* Path mapping */
     "baseUrl": ".",
+    "types": ["vite/client"],
     "paths": {
       "@/*": ["./src/*"]
     }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Job } from "./types/job";
+import { Job, NewJobInput } from "./types/job";
 import { useJobs } from "./hooks/useJobs";
 import { exportToCSV } from "./utils/exportUtils";
 import { Header } from "./components/Header";
@@ -16,17 +16,9 @@ function App() {
   const [tables, setTables] = useState(["Table 1"]);
   const [todoRefreshKey, setTodoRefreshKey] = useState(0);
 
-  const {
-    jobs,
-    stats,
-    jobsLoading,
-    statsLoading,
-    addJob,
-    updateJob,
-    deleteJob,
-  } = useJobs(currentTable);
+  const { jobs, stats, addJob, updateJob, deleteJob } = useJobs(currentTable);
 
-  const handleAddJob = (jobData: Omit<Job, "id" | "lastUpdated">) => {
+  const handleAddJob = (jobData: NewJobInput) => {
     // Ensure the job is added to the correct table
     const jobWithTable = {
       ...jobData,

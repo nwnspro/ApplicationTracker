@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 
 import { JobStatsComponent } from "./JobStats";
 import { TodoList } from "./TodoList";
-import { Job } from "../types/job";
+import { Job, JobStatus, NewJobInput } from "../types/job";
 import { Search, Frown, Plus } from "lucide-react";
 
 import { ShareMenu } from "./ShareMenu";
@@ -14,7 +14,7 @@ interface ContentProps {
   stats: any;
   onUpdateJob: (id: string, updates: Partial<Job>) => void;
   onDeleteJob: (id: string) => void;
-  onAddJob: (jobData: Omit<Job, "id" | "lastUpdated">) => void;
+  onAddJob: (jobData: NewJobInput) => void;
   onExport: () => void;
   showAddForm: boolean;
   setShowAddForm: (show: boolean) => void;
@@ -90,12 +90,14 @@ export function Content({
 
   // Handle cell editing
   const handleCellClick = (jobId: string, field: string) => {
+    setEditingRow(jobId);
     setEditingCell({ id: jobId, field });
   };
 
   const handleCellEdit = (jobId: string, field: string, value: string) => {
     onUpdateJob(jobId, { [field]: value });
     setEditingCell(null);
+    setEditingRow(null);
   };
 
   if (viewMode === "todos") {
@@ -233,8 +235,8 @@ export function Content({
                       onAddJob({
                         company: capitalizeCompany(companyEl.value),
                         position: positionEl.value,
-                        status: statusEl.value as any,
-                        notes: notesEl.value,
+                        status: statusEl.value as JobStatus,
+                        notes: notesEl.value.trim() ? notesEl.value : null,
                         appliedDate: dateEl.value,
                       });
                       setShowAddForm(false);

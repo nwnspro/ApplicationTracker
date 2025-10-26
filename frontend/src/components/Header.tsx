@@ -1,6 +1,13 @@
-import { User, BookText, BarChart3, LogOut, CheckSquare } from "lucide-react";
+import {
+  User as UserIcon,
+  BookText,
+  BarChart3,
+  LogOut,
+  CheckSquare,
+} from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useState, useEffect, useRef } from "react";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface HeaderProps {
   inputValue: string;
@@ -28,7 +35,7 @@ export function Header({
   setTables,
 }: HeaderProps) {
   const [showTableDropdown, setShowTableDropdown] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -117,7 +124,7 @@ export function Header({
                   />
                 ) : (
                   <div className="w-full h-full bg-gray-700 flex items-center justify-center">
-                    <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <UserIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                 );
               })()}
@@ -142,7 +149,7 @@ export function Header({
             onClick={handleSignIn}
             className="w-10 h-10 sm:w-12 sm:h-12 relative bg-gray-700 rounded-[100px] overflow-hidden flex items-center justify-center hover:bg-gray-600 transition-all duration-200"
           >
-            <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            <UserIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           </button>
         )}
       </div>

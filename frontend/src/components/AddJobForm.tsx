@@ -1,26 +1,26 @@
 import React, { useState } from "react";
-import { Job, JobStatus } from "../types/job";
+import {
+  JobStatus,
+  JOB_STATUS_VALUES,
+  JOB_STATUS_LABELS,
+  NewJobInput,
+} from "../types/job";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Select } from "./ui/select";
 
 interface AddJobFormProps {
-  onAddJob: (job: Omit<Job, "id" | "lastUpdated">) => void;
+  onAddJob: (job: NewJobInput) => void;
   onCancel: () => void;
 }
 
-const statusOptions: JobStatus[] = [
-  "APPLIED",
-  "INTERVIEWING", 
-  "OFFER",
-  "REJECTED",
-];
+const statusOptions: readonly JobStatus[] = JOB_STATUS_VALUES;
 
 export function AddJobForm({ onAddJob, onCancel }: AddJobFormProps) {
   const [formData, setFormData] = useState({
     company: "",
     position: "",
-    status: "APPLIED" as JobStatus,
+    status: (statusOptions[0] ?? "APPLIED") as JobStatus,
     notes: "",
     appliedDate: new Date().toISOString().split("T")[0],
     url: "",
@@ -30,13 +30,12 @@ export function AddJobForm({ onAddJob, onCancel }: AddJobFormProps) {
     e.preventDefault();
     onAddJob({
       ...formData,
-      userId: "", // Will be set by the API
-      updatedAt: new Date().toISOString(),
+      notes: formData.notes.trim() ? formData.notes : null,
     });
     setFormData({
       company: "",
       position: "",
-      status: "APPLIED",
+      status: (statusOptions[0] ?? "APPLIED") as JobStatus,
       notes: "",
       appliedDate: new Date().toISOString().split("T")[0],
       url: "",
@@ -83,7 +82,7 @@ export function AddJobForm({ onAddJob, onCancel }: AddJobFormProps) {
           >
             {statusOptions.map((status) => (
               <option key={status} value={status}>
-                {status}
+                {JOB_STATUS_LABELS[status]}
               </option>
             ))}
           </Select>

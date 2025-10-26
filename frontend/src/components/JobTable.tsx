@@ -9,7 +9,12 @@ import {
   SortingState,
   ColumnFiltersState,
 } from "@tanstack/react-table";
-import { Job, JobStatus } from "../types/job";
+import {
+  Job,
+  JobStatus,
+  JOB_STATUS_VALUES,
+  JOB_STATUS_LABELS,
+} from "../types/job";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Select } from "./ui/select";
@@ -23,15 +28,19 @@ interface JobTableProps {
 
 const columnHelper = createColumnHelper<Job>();
 
-const statusOptions: JobStatus[] = [
-  "Applied",
-  "Interview Scheduled",
-  "Interview Completed",
-  "Offer Received",
-  "Rejected",
-  "Withdrawn",
-  "No Response",
-];
+const statusOptions: readonly JobStatus[] = JOB_STATUS_VALUES;
+
+const STATUS_COLORS: Record<JobStatus, string> = {
+  APPLIED: "bg-blue-100 text-blue-800",
+  INTERVIEW_SCHEDULED: "bg-yellow-100 text-yellow-800",
+  INTERVIEW_COMPLETED: "bg-purple-100 text-purple-800",
+  INTERVIEWING: "bg-yellow-100 text-yellow-800",
+  OFFER: "bg-green-100 text-green-800",
+  OFFER_RECEIVED: "bg-green-100 text-green-800",
+  REJECTED: "bg-red-100 text-red-800",
+  WITHDRAWN: "bg-gray-100 text-gray-800",
+  NO_RESPONSE: "bg-orange-100 text-orange-800",
+};
 
 export function JobTable({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -96,7 +105,7 @@ export function JobTable({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) {
           if (isEditing) {
             return (
               <Select
-                value={editingData.status || value}
+                value={(editingData.status ?? value) as JobStatus}
                 onChange={(e) =>
                   setEditingData((prev) => ({
                     ...prev,
@@ -107,30 +116,21 @@ export function JobTable({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) {
               >
                 {statusOptions.map((status) => (
                   <option key={status} value={status}>
-                    {status}
+                    {JOB_STATUS_LABELS[status]}
                   </option>
                 ))}
               </Select>
             );
           }
 
-          const statusColors: Record<JobStatus, string> = {
-            Applied: "bg-blue-100 text-blue-800",
-            "Interview Scheduled": "bg-yellow-100 text-yellow-800",
-            "Interview Completed": "bg-purple-100 text-purple-800",
-            Interviewing: "bg-yellow-100 text-yellow-800",
-            "Offer Received": "bg-green-100 text-green-800",
-            Offer: "bg-green-100 text-green-800",
-            Rejected: "bg-red-100 text-red-800",
-            Withdrawn: "bg-gray-100 text-gray-800",
-            "No Response": "bg-orange-100 text-orange-800",
-          };
-
+          const status = value as JobStatus;
+          const statusColor = STATUS_COLORS[status] ?? "bg-gray-100 text-gray-800";
+          const statusLabel = JOB_STATUS_LABELS[status] ?? status;
           return (
             <span
-              className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[value]}`}
+              className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}
             >
-              {value}
+              {statusLabel}
             </span>
           );
         },
@@ -144,7 +144,7 @@ export function JobTable({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) {
           if (isEditing) {
             return (
               <Input
-                value={editingData.notes || value}
+                value={(editingData.notes ?? value) || ""}
                 onChange={(e) =>
                   setEditingData((prev) => ({ ...prev, notes: e.target.value }))
                 }
@@ -215,7 +215,11 @@ export function JobTable({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => window.open(row.original.url, "_blank")}
+                  onClick={() => {
+                    const jobUrl = row.original.url;
+                    if (!jobUrl) return;
+                    window.open(jobUrl, "_blank", "noopener,noreferrer");
+                  }}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
@@ -242,6 +246,10 @@ export function JobTable({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) {
     },
   });
 
+  const rawStatusFilter = table.getColumn("status")?.getFilterValue();
+  const statusFilterValue =
+    typeof rawStatusFilter === "string" ? rawStatusFilter : "";
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -255,7 +263,7 @@ export function JobTable({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) {
           className="max-w-sm"
         />
         <Select
-          value={(table.getColumn("status")?.getFilterValue() as string) ?? ""}
+          value={statusFilterValue}
           onChange={(event) =>
             table.getColumn("status")?.setFilterValue(event.target.value)
           }
@@ -264,7 +272,7 @@ export function JobTable({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) {
           <option value="">All Statuses</option>
           {statusOptions.map((status) => (
             <option key={status} value={status}>
-              {status}
+              {JOB_STATUS_LABELS[status]}
             </option>
           ))}
         </Select>
