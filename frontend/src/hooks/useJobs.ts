@@ -182,11 +182,11 @@ export function useJobs(currentTable: string = "Table 1") {
     retry: false,
   });
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["jobStats"],
-    queryFn: jobService.getJobStats,
-    retry: false,
-  });
+  // Calculate stats from existing jobs data instead of making a separate query
+  const stats = useMemo(() => {
+    if (!jobs || jobs.length === 0) return null;
+    return jobService.calculateStats(jobs);
+  }, [jobs]);
 
   // Use mock data ONLY if user is not authenticated (guest mode)
   // Check if error message is 'UNAUTHENTICATED' to determine guest status
@@ -197,9 +197,43 @@ export function useJobs(currentTable: string = "Table 1") {
 
   const addJobMutation = useMutation({
     mutationFn: jobService.addJob,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      queryClient.invalidateQueries({ queryKey: ["jobStats"] });
+    // Optimistically add the new job to the UI before the API call completes
+    onMutate: async (newJobData: Omit<Job, "id" | "userId" | "updatedAt">) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["jobs"] });
+
+      // Snapshot the previous value
+      const previousJobs = queryClient.getQueryData<Job[]>(["jobs"]);
+
+      // Optimistically add the new job with a temporary ID
+      queryClient.setQueryData(["jobs"], (old: Job[] | undefined) => {
+        const tempJob: Job = {
+          ...newJobData,
+          id: `temp-${Date.now()}`,
+          userId: "temp-user",
+          updatedAt: new Date().toISOString(),
+          tableName: newJobData.tableName || currentTable,
+        };
+        return old ? [...old, tempJob] : [tempJob];
+      });
+
+      return { previousJobs };
+    },
+    // On success, replace temporary job with real data from server
+    onSuccess: (newJob: Job) => {
+      queryClient.setQueryData(["jobs"], (old: Job[] | undefined) => {
+        if (!old) return [newJob];
+        // Remove temp job and add real job
+        return [...old.filter((job: Job) => !job.id.startsWith('temp-')), newJob];
+      });
+      // No need to invalidate jobStats since it's derived from jobs data
+    },
+    // If mutation fails, rollback
+    onError: (_error: Error, _variables: Omit<Job, "id" | "userId" | "updatedAt">, context?: { previousJobs: Job[] | undefined }) => {
+      console.error("Failed to add job", _error);
+      if (context?.previousJobs) {
+        queryClient.setQueryData(["jobs"], context.previousJobs);
+      }
     },
   });
 
@@ -207,17 +241,17 @@ export function useJobs(currentTable: string = "Table 1") {
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Job> }) =>
       jobService.updateJob(id, updates),
     // Optimistically update the UI before the API call completes
-    onMutate: async ({ id, updates }) => {
+    onMutate: async ({ id, updates }: { id: string; updates: Partial<Job> }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: ["jobs"] });
 
       // Snapshot the previous value
-      const previousJobs = queryClient.getQueryData(["jobs"]);
+      const previousJobs = queryClient.getQueryData<Job[]>(["jobs"]);
 
       // Optimistically update the job
       queryClient.setQueryData(["jobs"], (old: Job[] | undefined) => {
         if (!old) return [];
-        return old.map((job) =>
+        return old.map((job: Job) =>
           job.id === id ? { ...job, ...updates, updatedAt: new Date().toISOString() } : job
         );
       });
@@ -225,8 +259,8 @@ export function useJobs(currentTable: string = "Table 1") {
       return { previousJobs };
     },
     // If mutation fails, rollback
-    onError: (error, _variables, context) => {
-      console.error("Failed to update job", error);
+    onError: (_error: Error, _variables: { id: string; updates: Partial<Job> }, context?: { previousJobs: Job[] | undefined }) => {
+      console.error("Failed to update job", _error);
       if (context?.previousJobs) {
         queryClient.setQueryData(["jobs"], context.previousJobs);
       }
@@ -234,32 +268,32 @@ export function useJobs(currentTable: string = "Table 1") {
     // Always refetch after error or success
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      queryClient.invalidateQueries({ queryKey: ["jobStats"] });
+      // No need to invalidate jobStats since it's derived from jobs data
     },
   });
 
   const deleteJobMutation = useMutation({
     mutationFn: jobService.deleteJob,
     // Optimistically update the UI before the API call completes
-    onMutate: async (deletedId) => {
+    onMutate: async (deletedId: string) => {
       // Cancel any outgoing refetches to avoid overwriting our optimistic update
       await queryClient.cancelQueries({ queryKey: ["jobs"] });
 
       // Snapshot the previous value
-      const previousJobs = queryClient.getQueryData(["jobs"]);
+      const previousJobs = queryClient.getQueryData<Job[]>(["jobs"]);
 
       // Optimistically update to remove the deleted job
       queryClient.setQueryData(["jobs"], (old: Job[] | undefined) => {
         if (!old) return [];
-        return old.filter((job) => job.id !== deletedId);
+        return old.filter((job: Job) => job.id !== deletedId);
       });
 
       // Return context with the snapshot
       return { previousJobs };
     },
     // If mutation fails, rollback to the previous value
-    onError: (error, _deletedId, context) => {
-      console.error("Failed to delete job", error);
+    onError: (_error: Error, _deletedId: string, context?: { previousJobs: Job[] | undefined }) => {
+      console.error("Failed to delete job", _error);
       if (context?.previousJobs) {
         queryClient.setQueryData(["jobs"], context.previousJobs);
       }
@@ -267,7 +301,7 @@ export function useJobs(currentTable: string = "Table 1") {
     // Always refetch after error or success to sync with server
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      queryClient.invalidateQueries({ queryKey: ["jobStats"] });
+      // No need to invalidate jobStats since it's derived from jobs data
     },
   });
 
@@ -277,9 +311,9 @@ export function useJobs(currentTable: string = "Table 1") {
       return {
         total: displayJobs.length,
         applied: displayJobs.length, // Total applications, not just "APPLIED" status
-        interviewing: displayJobs.filter(j => j.status === "INTERVIEWING").length,
-        rejected: displayJobs.filter(j => j.status === "REJECTED").length,
-        offer: displayJobs.filter(j => j.status === "OFFER").length,
+        interviewing: displayJobs.filter((j: Job) => j.status === "INTERVIEWING").length,
+        rejected: displayJobs.filter((j: Job) => j.status === "REJECTED").length,
+        offer: displayJobs.filter((j: Job) => j.status === "OFFER").length,
       };
     }
     return {
@@ -301,20 +335,20 @@ export function useJobs(currentTable: string = "Table 1") {
   };
 
   const handleMockUpdate = ({ id, updates }: { id: string; updates: Partial<Job> }) => {
-    setLocalMockJobs(localMockJobs.map(job =>
+    setLocalMockJobs(localMockJobs.map((job: Job) =>
       job.id === id ? { ...job, ...updates, updatedAt: new Date().toISOString() } : job
     ));
   };
 
   const handleMockDelete = (id: string) => {
-    setLocalMockJobs(localMockJobs.filter(job => job.id !== id));
+    setLocalMockJobs(localMockJobs.filter((job: Job) => job.id !== id));
   };
 
   return {
     jobs: displayJobs,
     stats: displayStats,
     jobsLoading,
-    statsLoading,
+    statsLoading: jobsLoading, // Stats are derived from jobs, so use same loading state
     addJob: isUsingMockData ? handleMockAdd : addJobMutation.mutate,
     updateJob: isUsingMockData ? handleMockUpdate : updateJobMutation.mutate,
     deleteJob: isUsingMockData ? handleMockDelete : deleteJobMutation.mutate,

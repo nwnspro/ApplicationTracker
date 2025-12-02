@@ -18,6 +18,7 @@ interface ContentProps {
   onExport: () => void;
   showAddForm: boolean;
   setShowAddForm: (show: boolean) => void;
+  currentTable: string;
 }
 
 export function Content({
@@ -30,6 +31,7 @@ export function Content({
 
   showAddForm,
   setShowAddForm,
+  currentTable,
 }: ContentProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortColumn, setSortColumn] = useState<"date" | "status">("date");
@@ -104,15 +106,16 @@ export function Content({
     return (
       <TodoList
         onApplied={(url, companyName) => {
-          // When a todo is marked as applied, add it to Table 1
+          // When a todo is marked as applied, add it to the current table
+          const defaultPosition = currentTable === "Table 2" ? "Part-time" : "Software Developer";
           onAddJob({
             company: companyName,
-            position: "Software Developer",
+            position: defaultPosition,
             status: "APPLIED",
             notes: "",
             appliedDate: new Date().toISOString().split("T")[0],
             url: url,
-            tableName: "Table 1",
+            tableName: currentTable,
           });
         }}
       />
@@ -238,6 +241,7 @@ export function Content({
                         status: statusEl.value as JobStatus,
                         notes: notesEl.value.trim() ? notesEl.value : null,
                         appliedDate: dateEl.value,
+                        tableName: currentTable,
                       });
                       setShowAddForm(false);
                     }
@@ -272,7 +276,7 @@ export function Content({
                   <input
                     type="text"
                     placeholder="Job title"
-                    defaultValue="Software Developer"
+                    defaultValue={currentTable === "Table 2" ? "Part-time" : "Software Developer"}
                     className="w-full h-8 px-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                     id="add-position"
                   />

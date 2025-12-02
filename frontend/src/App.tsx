@@ -146,6 +146,7 @@ function App() {
           onExport={exportData}
           showAddForm={showAddForm}
           setShowAddForm={setShowAddForm}
+          currentTable={currentTable}
         />
       </main>
     </div>

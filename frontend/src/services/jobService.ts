@@ -79,8 +79,9 @@ export const jobService = {
     });
   },
 
-  async getJobStats(): Promise<JobStats> {
-    const jobs = await this.getJobs();
+  // Helper function to calculate stats from jobs array
+  // This can be used by React Query to derive stats from existing jobs query
+  calculateStats(jobs: Job[]): JobStats {
     const total = jobs.length;
     const applied = jobs.filter((job) => job.status === "APPLIED").length;
     const rejected = jobs.filter((job) => job.status === "REJECTED").length;
@@ -95,5 +96,10 @@ export const jobService = {
     ).length;
 
     return { total, applied, interviewing, rejected, offer };
+  },
+
+  async getJobStats(): Promise<JobStats> {
+    const jobs = await this.getJobs();
+    return this.calculateStats(jobs);
   },
 };
