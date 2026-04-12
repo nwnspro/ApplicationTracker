@@ -41,7 +41,7 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
 
     // Calculate container dimensions for Sankey
     const width = 1100;
-    const height = 280;
+    const height = 420;
 
     // Analyze job flows - simplified to match actual statuses
     const analyzeJobFlows = () => {
@@ -121,6 +121,19 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
         [width - margin.right, height - margin.bottom],
       ]);
 
+    // Bail out if no data to render
+    if (nodes.length === 0 || links.length === 0) {
+      d3.select(svgRef.current)
+        .append("text")
+        .attr("x", width / 2)
+        .attr("y", height / 2)
+        .attr("text-anchor", "middle")
+        .style("font", "14px 'Onest', sans-serif")
+        .style("fill", "#999")
+        .text("No application data yet");
+      return;
+    }
+
     // Generate the sankey layout
     const { nodes: sankeyNodes, links: sankeyLinks } = sankeyGenerator({
       nodes: nodes.map((d) => ({ ...d })),
@@ -136,17 +149,17 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
       .style("max-width", "100%")
       .style("height", "auto");
 
-    // Color scheme - matching status badge colors
+    // Color scheme - soft muted palette
     const colorScale = d3
       .scaleOrdinal()
       .domain(["Applied", "Still Waiting", "In Process", "Interviewing", "Offers", "Rejected"])
       .range([
-        "#3b82f6", // Applied - blue (matching Applied badge)
-        "#93c5fd", // Still Waiting - light blue
-        "#fbbf24", // In Process - yellow/amber
-        "#fcd34d", // Interviewing - yellow (matching Interviewing badge)
-        "#22c55e", // Offers - green (matching Offer badge)
-        "#ef4444", // Rejected - red (matching Rejected badge)
+        "#a8c4e0", // Applied - soft steel blue
+        "#c5d8eb", // Still Waiting - lighter blue
+        "#f0d080", // In Process - soft amber
+        "#f5e09a", // Interviewing - light yellow
+        "#9ecfaa", // Offers - sage green
+        "#e8a5a5", // Rejected - dusty rose
       ]);
 
     // Add links
@@ -192,48 +205,44 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
       .text((d) => `${d.name} (${d.value || 0})`);
   }, [stats, jobs]);
 
+  const total = (stats.applied || 0) + (stats.interviewing || 0) + (stats.rejected || 0) + (stats.offer || 0);
+  const interviewRate = total > 0 ? Math.round(((stats.interviewing || 0) / total) * 100) : 0;
+  const offerRate = total > 0 ? Math.round(((stats.offer || 0) / total) * 100) : 0;
+  const rejectedRate = total > 0 ? Math.round(((stats.rejected || 0) / total) * 100) : 0;
+
   return (
-    <div className="h-full p-3 sm:p-4 md:p-6 flex flex-col">
-      {/* Top Statistics Cards with spacing - Smaller */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-3 sm:mb-4">
-        <div className="bg-blue-50 p-2 sm:p-3 rounded-lg border">
-          <div className="text-lg sm:text-xl font-bold text-blue-600">
-            {stats.applied || 0}
-          </div>
-          <div className="text-xs text-blue-600">Applied</div>
+    <div className="h-full flex flex-col">
+      {/* Stat Cards */}
+      <div className="grid grid-cols-4 gap-px border-b border-gray-100">
+        <div className="px-6 py-4" style={{ background: "#eef4fb" }}>
+          <div className="text-2xl font-semibold" style={{ color: "#6a9dc0" }}>{stats.applied || 0}</div>
+          <div className="text-xs mt-0.5" style={{ color: "#7aaac8" }}>Applied</div>
+          <div className="text-xs mt-1 text-gray-400">{total} total tracked</div>
         </div>
-
-        <div className="bg-yellow-50 p-2 sm:p-3 rounded-lg border">
-          <div className="text-lg sm:text-xl font-bold text-yellow-600">
-            {stats.interviewing || 0}
-          </div>
-          <div className="text-xs text-yellow-600">Interviewing</div>
+        <div className="px-6 py-4" style={{ background: "#fdf8ec" }}>
+          <div className="text-2xl font-semibold" style={{ color: "#c8a44a" }}>{stats.interviewing || 0}</div>
+          <div className="text-xs mt-0.5" style={{ color: "#c8a44a" }}>Interviewing</div>
+          <div className="text-xs mt-1 text-gray-400">{interviewRate}% of applications</div>
         </div>
-
-        <div className="bg-red-50 p-2 sm:p-3 rounded-lg border">
-          <div className="text-lg sm:text-xl font-bold text-red-600">
-            {stats.rejected || 0}
-          </div>
-          <div className="text-xs text-red-600">Rejected</div>
+        <div className="px-6 py-4" style={{ background: "#fdf0f0" }}>
+          <div className="text-2xl font-semibold" style={{ color: "#c87a7a" }}>{stats.rejected || 0}</div>
+          <div className="text-xs mt-0.5" style={{ color: "#c87a7a" }}>Rejected</div>
+          <div className="text-xs mt-1 text-gray-400">{rejectedRate}% of applications</div>
         </div>
-
-        <div className="bg-green-50 p-2 sm:p-3 rounded-lg border">
-          <div className="text-lg sm:text-xl font-bold text-green-600">
-            {stats.offer || 0}
-          </div>
-          <div className="text-xs text-green-600">Offers</div>
+        <div className="px-6 py-4" style={{ background: "#eef6f0" }}>
+          <div className="text-2xl font-semibold" style={{ color: "#5fa870" }}>{stats.offer || 0}</div>
+          <div className="text-xs mt-0.5" style={{ color: "#5fa870" }}>Offers</div>
+          <div className="text-xs mt-1 text-gray-400">{offerRate}% success rate</div>
         </div>
       </div>
 
-      {/* Sankey Diagram Section - Larger */}
-      <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg flex-1 overflow-hidden">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 sm:mb-4">
-          <h4 className="text-sm sm:text-md font-medium">
-            Application Status Distribution
-          </h4>
+      {/* Sankey fills remaining space */}
+      <div className="flex-1 flex flex-col overflow-hidden px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-medium text-gray-500">Application Status Distribution</h4>
           <ShareMenu exportOptions={getStatsExportOptions(svgElement)} />
         </div>
-        <div className="h-64 sm:h-72 md:h-80 overflow-x-auto">
+        <div className="flex-1 overflow-x-auto">
           <svg ref={svgRef} className="w-full h-full min-w-[600px]"></svg>
         </div>
       </div>

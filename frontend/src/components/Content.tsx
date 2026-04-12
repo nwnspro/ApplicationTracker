@@ -124,7 +124,7 @@ export function Content({
 
   if (viewMode === "table") {
     return (
-      <div className="w-full max-w-[1260px] h-auto min-h-[400px] sm:h-[530px] bg-white rounded-[20px] shadow-[0px_24px_80px_-40px_rgba(0,0,0,0.25)] relative overflow-hidden">
+      <div className="w-full max-w-[1260px] h-[calc(100vh-196px)] bg-white rounded-[20px] shadow-[0px_24px_80px_-40px_rgba(0,0,0,0.25)] relative overflow-hidden">
         {/* Company Search Bar */}
         <div className="px-4 py-3 border-b border-gray-200">
           <div className="relative w-full flex items-center">
@@ -166,7 +166,7 @@ export function Content({
         </div>
 
         {/* Table */}
-        <div className="flex flex-col h-auto sm:h-[calc(100%-61px)]">
+        <div className="flex flex-col h-[calc(100%-61px)]">
           {/* Table Header - Fixed - Responsive grid */}
           <div className="bg-gray-100 border-b border-gray-200 flex-shrink-0 overflow-x-auto">
             <div className="grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 min-w-[700px]">
@@ -585,7 +585,7 @@ export function Content({
   }
 
   return (
-    <div className="w-full max-w-[1260px] h-auto min-h-[400px] sm:h-[530px] bg-white rounded-[20px] shadow-[0px_24px_80px_-40px_rgba(0,0,0,0.25)] overflow-hidden">
+    <div className="w-full max-w-[1260px] h-[calc(100vh-196px)] bg-white rounded-[20px] shadow-[0px_24px_80px_-40px_rgba(0,0,0,0.25)] overflow-hidden">
       {stats && <JobStatsComponent stats={stats} jobs={jobs} />}
     </div>
   );
