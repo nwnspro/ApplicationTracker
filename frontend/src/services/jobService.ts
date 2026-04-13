@@ -4,23 +4,33 @@ import { supabase } from "../lib/supabase";
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
+// Cached token to avoid calling getSession() on every request
+let cachedToken: string | null = null;
+let tokenExpiry = 0;
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  cachedToken = session?.access_token ?? null;
+  tokenExpiry = session ? (session.expires_at ?? 0) * 1000 : 0;
+});
+
+async function getToken(): Promise<string> {
+  if (cachedToken && Date.now() < tokenExpiry - 30_000) {
+    return cachedToken;
+  }
+  const { data: { session } } = await supabase.auth.getSession();
+  cachedToken = session?.access_token ?? null;
+  tokenExpiry = session ? (session.expires_at ?? 0) * 1000 : 0;
+  if (!cachedToken) throw new Error("UNAUTHENTICATED");
+  return cachedToken;
+}
+
 // Helper function to make authenticated API requests
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-
-  // Get the current session token from Supabase
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const token = session?.access_token;
-
-  // If no token, throw an authentication error
-  if (!token) {
-    throw new Error("UNAUTHENTICATED");
-  }
+  const token = await getToken();
 
   const response = await fetch(url, {
     ...options,

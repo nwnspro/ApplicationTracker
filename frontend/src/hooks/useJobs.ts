@@ -180,6 +180,9 @@ export function useJobs(currentTable: string = "Table 1") {
     queryKey: ["jobs"],
     queryFn: jobService.getJobs,
     retry: false,
+    staleTime: 60_000,       // don't refetch within 1 min
+    gcTime: 5 * 60_000,      // keep cache for 5 min
+    refetchOnWindowFocus: false,
   });
 
   // Calculate stats from existing jobs data instead of making a separate query
@@ -258,17 +261,11 @@ export function useJobs(currentTable: string = "Table 1") {
 
       return { previousJobs };
     },
-    // If mutation fails, rollback
     onError: (_error: Error, _variables: { id: string; updates: Partial<Job> }, context?: { previousJobs: Job[] | undefined }) => {
       console.error("Failed to update job", _error);
       if (context?.previousJobs) {
         queryClient.setQueryData(["jobs"], context.previousJobs);
       }
-    },
-    // Always refetch after error or success
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      // No need to invalidate jobStats since it's derived from jobs data
     },
   });
 
@@ -291,17 +288,11 @@ export function useJobs(currentTable: string = "Table 1") {
       // Return context with the snapshot
       return { previousJobs };
     },
-    // If mutation fails, rollback to the previous value
     onError: (_error: Error, _deletedId: string, context?: { previousJobs: Job[] | undefined }) => {
       console.error("Failed to delete job", _error);
       if (context?.previousJobs) {
         queryClient.setQueryData(["jobs"], context.previousJobs);
       }
-    },
-    // Always refetch after error or success to sync with server
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["jobs"] });
-      // No need to invalidate jobStats since it's derived from jobs data
     },
   });
 
