@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { jobService } from "../services/jobService";
 import { Job } from "../types/job";
+import { supabase } from "../lib/supabase";
 
 // Mock data for when user is not logged in - NZ Zoo themed!
 const mockJobs: Job[] = [
@@ -175,13 +176,40 @@ const mockJobs: Job[] = [
 export function useJobs(currentTable: string = "Table 1") {
   const queryClient = useQueryClient();
   const [localMockJobs, setLocalMockJobs] = useState<Job[]>(mockJobs);
+  const [authReady, setAuthReady] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
 
-  const { data: jobs = [], isLoading: jobsLoading, error: jobsError } = useQuery({
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncAuthState = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      setIsGuest(!session);
+      setAuthReady(true);
+    };
+
+    syncAuthState();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      setIsGuest(!session);
+      setAuthReady(true);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const { data: jobs = [], isLoading: jobsLoading } = useQuery({
     queryKey: ["jobs"],
     queryFn: jobService.getJobs,
+    enabled: authReady && !isGuest,
     retry: false,
-    staleTime: 60_000,       // don't refetch within 1 min
-    gcTime: 5 * 60_000,      // keep cache for 5 min
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
 
@@ -191,9 +219,6 @@ export function useJobs(currentTable: string = "Table 1") {
     return jobService.calculateStats(jobs);
   }, [jobs]);
 
-  // Use mock data ONLY if user is not authenticated (guest mode)
-  // Check if error message is 'UNAUTHENTICATED' to determine guest status
-  const isGuest = jobsError?.message === 'UNAUTHENTICATED';
   const allJobs = isGuest ? localMockJobs : jobs;
   const displayJobs = allJobs.filter(job => (job.tableName || "Table 1") === currentTable);
   const isUsingMockData = isGuest;
@@ -322,17 +347,19 @@ export function useJobs(currentTable: string = "Table 1") {
       updatedAt: new Date().toISOString(),
       tableName: currentTable,
     };
-    setLocalMockJobs([...localMockJobs, newJob]);
+    setLocalMockJobs((prevJobs) => [...prevJobs, newJob]);
   };
 
   const handleMockUpdate = ({ id, updates }: { id: string; updates: Partial<Job> }) => {
-    setLocalMockJobs(localMockJobs.map((job: Job) =>
-      job.id === id ? { ...job, ...updates, updatedAt: new Date().toISOString() } : job
-    ));
+    setLocalMockJobs((prevJobs) =>
+      prevJobs.map((job: Job) =>
+        job.id === id ? { ...job, ...updates, updatedAt: new Date().toISOString() } : job
+      )
+    );
   };
 
   const handleMockDelete = (id: string) => {
-    setLocalMockJobs(localMockJobs.filter((job: Job) => job.id !== id));
+    setLocalMockJobs((prevJobs) => prevJobs.filter((job: Job) => job.id !== id));
   };
 
   return {

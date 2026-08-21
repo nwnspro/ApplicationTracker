@@ -41,6 +41,7 @@ export function Content({
     field: string;
   } | null>(null);
   const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState<string>("");
   const [showSadFace, setShowSadFace] = useState(false);
 
   // Search functionality
@@ -92,14 +93,30 @@ export function Content({
 
   // Handle cell editing
   const handleCellClick = (jobId: string, field: string) => {
+    const job = jobs.find((item) => item.id === jobId);
+    const value =
+      field === "appliedDate"
+        ? job?.appliedDate ?? ""
+        : field === "notes"
+        ? job?.notes ?? ""
+        : field === "company"
+        ? job?.company ?? ""
+        : field === "position"
+        ? job?.position ?? ""
+        : field === "status"
+        ? job?.status ?? ""
+        : "";
+
     setEditingRow(jobId);
     setEditingCell({ id: jobId, field });
+    setEditingDraft(String(value));
   };
 
   const handleCellEdit = (jobId: string, field: string, value: string) => {
     onUpdateJob(jobId, { [field]: value });
     setEditingCell(null);
     setEditingRow(null);
+    setEditingDraft("");
   };
 
   if (viewMode === "todos") {
@@ -331,14 +348,20 @@ export function Content({
                     editingCell?.field === "date" ? (
                       <input
                         type="date"
-                        value={job.appliedDate}
-                        onChange={(e) =>
-                          handleCellEdit(
-                            job.id,
-                            "appliedDate",
-                            e.target.value
-                          )
-                        }
+                        value={editingDraft}
+                        onChange={(e) => setEditingDraft(e.target.value)}
+                        onBlur={() => handleCellEdit(job.id, "appliedDate", editingDraft)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleCellEdit(job.id, "appliedDate", editingDraft);
+                          }
+                          if (e.key === "Escape") {
+                            setEditingCell(null);
+                            setEditingRow(null);
+                            setEditingDraft("");
+                          }
+                        }}
                         className="w-full p-1 border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
                         autoFocus
                       />
@@ -364,10 +387,20 @@ export function Content({
                     editingCell?.field === "company" ? (
                       <input
                         type="text"
-                        value={job.company}
-                        onChange={(e) =>
-                          handleCellEdit(job.id, "company", e.target.value)
-                        }
+                        value={editingDraft}
+                        onChange={(e) => setEditingDraft(e.target.value)}
+                        onBlur={() => handleCellEdit(job.id, "company", editingDraft)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleCellEdit(job.id, "company", editingDraft);
+                          }
+                          if (e.key === "Escape") {
+                            setEditingCell(null);
+                            setEditingRow(null);
+                            setEditingDraft("");
+                          }
+                        }}
                         className="w-full p-1 border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         autoFocus
                       />
@@ -391,10 +424,20 @@ export function Content({
                     editingCell?.field === "position" ? (
                       <input
                         type="text"
-                        value={job.position}
-                        onChange={(e) =>
-                          handleCellEdit(job.id, "position", e.target.value)
-                        }
+                        value={editingDraft}
+                        onChange={(e) => setEditingDraft(e.target.value)}
+                        onBlur={() => handleCellEdit(job.id, "position", editingDraft)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleCellEdit(job.id, "position", editingDraft);
+                          }
+                          if (e.key === "Escape") {
+                            setEditingCell(null);
+                            setEditingRow(null);
+                            setEditingDraft("");
+                          }
+                        }}
                         className="w-full p-1 border border-blue-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         autoFocus
                       />
@@ -491,11 +534,20 @@ export function Content({
                       editingCell?.field === "notes" ? (
                         <input
                           type="text"
-                          value={job.notes || ""}
-                          onChange={(e) =>
-                            handleCellEdit(job.id, "notes", e.target.value)
-                          }
-                          onBlur={() => setEditingCell(null)}
+                          value={editingDraft}
+                          onChange={(e) => setEditingDraft(e.target.value)}
+                          onBlur={() => handleCellEdit(job.id, "notes", editingDraft)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleCellEdit(job.id, "notes", editingDraft);
+                            }
+                            if (e.key === "Escape") {
+                              setEditingCell(null);
+                              setEditingRow(null);
+                              setEditingDraft("");
+                            }
+                          }}
                           className="w-full px-0 py-1 bg-transparent text-gray-800 text-sm border-0 border-b border-gray-300 focus:outline-none focus:border-gray-500 focus:ring-0"
                           placeholder="Add notes..."
                           autoFocus
