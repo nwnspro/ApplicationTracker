@@ -49,7 +49,16 @@ async function apiRequest<T>(
     throw new Error(error.error || `HTTP ${response.status}`);
   }
 
-  return response.json();
+  if (response.status === 204) {
+    return undefined as unknown as T;
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    return undefined as unknown as T;
+  }
+
+  return response.json() as Promise<T>;
 }
 
 export const jobService = {
@@ -57,7 +66,7 @@ export const jobService = {
     const result = await apiRequest<{ jobApplications: Job[] }>(
       "/applications"
     );
-    return result.jobApplications || [];
+    return result?.jobApplications ?? [];
   },
 
   async addJob(
@@ -84,7 +93,7 @@ export const jobService = {
   },
 
   async deleteJob(id: string): Promise<void> {
-    await apiRequest(`/applications/${id}`, {
+    await apiRequest<void>(`/applications/${id}`, {
       method: "DELETE",
     });
   },

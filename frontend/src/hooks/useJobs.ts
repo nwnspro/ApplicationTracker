@@ -225,99 +225,43 @@ export function useJobs(currentTable: string = "Table 1") {
 
   const addJobMutation = useMutation({
     mutationFn: jobService.addJob,
-    // Optimistically add the new job to the UI before the API call completes
-    onMutate: async (newJobData: Omit<Job, "id" | "userId" | "updatedAt">) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["jobs"] });
-
-      // Snapshot the previous value
-      const previousJobs = queryClient.getQueryData<Job[]>(["jobs"]);
-
-      // Optimistically add the new job with a temporary ID
-      queryClient.setQueryData(["jobs"], (old: Job[] | undefined) => {
-        const tempJob: Job = {
-          ...newJobData,
-          id: `temp-${Date.now()}`,
-          userId: "temp-user",
-          updatedAt: new Date().toISOString(),
-          tableName: newJobData.tableName || currentTable,
-        };
-        return old ? [...old, tempJob] : [tempJob];
-      });
-
-      return { previousJobs };
-    },
-    // On success, replace temporary job with real data from server
     onSuccess: (newJob: Job) => {
-      queryClient.setQueryData(["jobs"], (old: Job[] | undefined) => {
+      queryClient.setQueryData<Job[]>(["jobs"], (old: Job[] | undefined) => {
         if (!old) return [newJob];
-        // Remove temp job and add real job
-        return [...old.filter((job: Job) => !job.id.startsWith('temp-')), newJob];
+        return [...old.filter((job: Job) => !job.id.startsWith("temp-")), newJob];
       });
-      // No need to invalidate jobStats since it's derived from jobs data
     },
-    // If mutation fails, rollback
-    onError: (_error: Error, _variables: Omit<Job, "id" | "userId" | "updatedAt">, context?: { previousJobs: Job[] | undefined }) => {
+    onError: (_error: Error) => {
       console.error("Failed to add job", _error);
-      if (context?.previousJobs) {
-        queryClient.setQueryData(["jobs"], context.previousJobs);
-      }
     },
   });
 
   const updateJobMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Job> }) =>
       jobService.updateJob(id, updates),
-    // Optimistically update the UI before the API call completes
-    onMutate: async ({ id, updates }: { id: string; updates: Partial<Job> }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["jobs"] });
-
-      // Snapshot the previous value
-      const previousJobs = queryClient.getQueryData<Job[]>(["jobs"]);
-
-      // Optimistically update the job
-      queryClient.setQueryData(["jobs"], (old: Job[] | undefined) => {
-        if (!old) return [];
+    onSuccess: (updatedJob: Job) => {
+      queryClient.setQueryData<Job[]>(["jobs"], (old: Job[] | undefined) => {
+        if (!old) return [updatedJob];
         return old.map((job: Job) =>
-          job.id === id ? { ...job, ...updates, updatedAt: new Date().toISOString() } : job
+          job.id === updatedJob.id ? updatedJob : job
         );
       });
-
-      return { previousJobs };
     },
-    onError: (_error: Error, _variables: { id: string; updates: Partial<Job> }, context?: { previousJobs: Job[] | undefined }) => {
+    onError: (_error: Error) => {
       console.error("Failed to update job", _error);
-      if (context?.previousJobs) {
-        queryClient.setQueryData(["jobs"], context.previousJobs);
-      }
     },
   });
 
   const deleteJobMutation = useMutation({
     mutationFn: jobService.deleteJob,
-    // Optimistically update the UI before the API call completes
-    onMutate: async (deletedId: string) => {
-      // Cancel any outgoing refetches to avoid overwriting our optimistic update
-      await queryClient.cancelQueries({ queryKey: ["jobs"] });
-
-      // Snapshot the previous value
-      const previousJobs = queryClient.getQueryData<Job[]>(["jobs"]);
-
-      // Optimistically update to remove the deleted job
-      queryClient.setQueryData(["jobs"], (old: Job[] | undefined) => {
+    onSuccess: (_result, deletedId: string) => {
+      queryClient.setQueryData<Job[]>(["jobs"], (old: Job[] | undefined) => {
         if (!old) return [];
         return old.filter((job: Job) => job.id !== deletedId);
       });
-
-      // Return context with the snapshot
-      return { previousJobs };
     },
-    onError: (_error: Error, _deletedId: string, context?: { previousJobs: Job[] | undefined }) => {
+    onError: (_error: Error) => {
       console.error("Failed to delete job", _error);
-      if (context?.previousJobs) {
-        queryClient.setQueryData(["jobs"], context.previousJobs);
-      }
     },
   });
 
