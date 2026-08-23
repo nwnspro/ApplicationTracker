@@ -52,7 +52,12 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
       jobs.forEach((job) => {
         const history = Array.isArray(job.statusHistory) && job.statusHistory.length > 0
           ? [...job.statusHistory].sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime())
-          : [{ status: job.status, changedAt: job.updatedAt || job.appliedDate }];
+          : job.status === "APPLIED"
+            ? [{ status: "APPLIED", changedAt: job.appliedDate || job.updatedAt || new Date().toISOString() }]
+            : [
+                { status: "APPLIED", changedAt: job.appliedDate || job.updatedAt || new Date().toISOString() },
+                { status: job.status, changedAt: job.updatedAt || job.appliedDate || new Date().toISOString() },
+              ];
 
         const statuses = history
           .map((entry) => normalizeStatus(entry.status))
@@ -125,7 +130,7 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
       ]);
 
     // Bail out if no data to render
-    if (nodes.length === 0 || links.length === 0) {
+    if (nodes.length === 0) {
       d3.select(svgRef.current)
         .append("text")
         .attr("x", width / 2)
@@ -166,17 +171,19 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
       ]);
 
     // Add links
-    svg
-      .append("g")
-      .selectAll("path")
-      .data(sankeyLinks)
-      .join("path")
-      .attr("d", sankeyLinkHorizontal())
-      .attr("stroke", (d) => colorScale((d.source as any).name) as string)
-      .attr("stroke-opacity", 0.5)
-      .attr("stroke-width", (d) => Math.max(1, (d as any).width || 0))
-      .attr("fill", "none")
-      .style("mix-blend-mode", "multiply");
+    if (sankeyLinks.length > 0) {
+      svg
+        .append("g")
+        .selectAll("path")
+        .data(sankeyLinks)
+        .join("path")
+        .attr("d", sankeyLinkHorizontal())
+        .attr("stroke", (d) => colorScale((d.source as any).name) as string)
+        .attr("stroke-opacity", 0.5)
+        .attr("stroke-width", (d) => Math.max(1, (d as any).width || 0))
+        .attr("fill", "none")
+        .style("mix-blend-mode", "multiply");
+    }
 
     // Add nodes
     const nodeGroup = svg
