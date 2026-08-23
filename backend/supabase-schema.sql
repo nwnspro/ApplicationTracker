@@ -15,6 +15,16 @@ CREATE TABLE IF NOT EXISTS job_applications (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS job_status_history (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  job_id UUID NOT NULL REFERENCES job_applications(id) ON DELETE CASCADE,
+  status VARCHAR(50) NOT NULL CHECK (status IN ('APPLIED', 'INTERVIEWING', 'OFFER', 'REJECTED')),
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_job_status_history_job_id ON job_status_history(job_id);
+CREATE INDEX IF NOT EXISTS idx_job_status_history_changed_at ON job_status_history(changed_at DESC);
+
 -- Create index on user_id for faster queries
 CREATE INDEX IF NOT EXISTS idx_job_applications_user_id ON job_applications(user_id);
 

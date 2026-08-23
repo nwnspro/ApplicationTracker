@@ -41,81 +41,84 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
 
     // Calculate container dimensions for Sankey
     const width = 1100;
-    const height = 420;
 
-    // Analyze job flows - simplified to match actual statuses
-    const analyzeJobFlows = () => {
-      const appliedCount = jobs.filter(j => j.status === "APPLIED").length;
-      const interviewingCount = jobs.filter(j => j.status === "INTERVIEWING").length;
-      const rejectedCount = jobs.filter(j => j.status === "REJECTED").length;
-      const offerCount = jobs.filter(j => j.status === "OFFER").length;
+    const buildStatusFlow = () => {
+      const transitions: Record<string, number> = {};
+      const nodeCounts: Record<string, number> = {};
+      const statusOrder = ["APPLIED", "INTERVIEWING", "OFFER", "REJECTED", "WITHDRAWN", "NO_RESPONSE"];
 
-      return {
-        appliedCount: jobs.length, // Total applications
-        interviewingCount,
-        rejectedCount,
-        offerCount,
-        // For flow: assume interviewed jobs come from applied
-        appliedStillWaiting: appliedCount,
-        movedToInterview: interviewingCount + rejectedCount + offerCount,
-      };
+      const normalizeStatus = (status?: string) => status || "APPLIED";
+
+      jobs.forEach((job) => {
+        const history = Array.isArray(job.statusHistory) && job.statusHistory.length > 0
+          ? [...job.statusHistory].sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime())
+          : [{ status: job.status, changedAt: job.updatedAt || job.appliedDate }];
+
+        const statuses = history
+          .map((entry) => normalizeStatus(entry.status))
+          .filter((status, index, list) => index === 0 || status !== list[index - 1]);
+
+        statuses.forEach((status) => {
+          nodeCounts[status] = (nodeCounts[status] || 0) + 1;
+        });
+
+        for (let i = 1; i < statuses.length; i += 1) {
+          const key = `${statuses[i - 1]}__${statuses[i]}`;
+          transitions[key] = (transitions[key] || 0) + 1;
+        }
+      });
+
+      const orderedNames = Array.from(new Set([...statusOrder, ...Object.keys(nodeCounts)])).sort(
+        (a, b) => {
+          const aIndex = statusOrder.indexOf(a);
+          const bIndex = statusOrder.indexOf(b);
+
+          if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+          if (aIndex === -1) return 1;
+          if (bIndex === -1) return -1;
+          return aIndex - bIndex;
+        }
+      );
+
+      const nodes: SankeyNode[] = orderedNames
+        .map((name, index) => ({
+          name,
+          id: index,
+          value: nodeCounts[name] || 0,
+        }))
+        .filter((node) => node.value > 0);
+
+      const idMap: Record<string, number> = {};
+      nodes.forEach((node, index) => {
+        idMap[node.name] = index;
+      });
+
+      const links: SankeyLink[] = Object.entries(transitions)
+        .map(([key, value]) => {
+          const [sourceName, targetName] = key.split("__");
+          if (idMap[sourceName] === undefined || idMap[targetName] === undefined) {
+            return null;
+          }
+
+          return {
+            source: idMap[sourceName],
+            target: idMap[targetName],
+            value,
+          };
+        })
+        .filter(Boolean) as SankeyLink[];
+
+      return { nodes, links };
     };
 
-    const flows = analyzeJobFlows();
-
-    // Create nodes based on actual status counts
-    const allNodes = [
-      { name: "Applied", id: 0, value: flows.appliedCount },
-      { name: "Still Waiting", id: 1, value: flows.appliedStillWaiting },
-      { name: "In Process", id: 2, value: flows.movedToInterview },
-      { name: "Interviewing", id: 3, value: flows.interviewingCount },
-      { name: "Offers", id: 4, value: flows.offerCount },
-      { name: "Rejected", id: 5, value: flows.rejectedCount },
-    ];
-
-    // Filter out nodes with 0 value
-    const nodes: SankeyNode[] = allNodes.filter((node) => node.value > 0);
-
-    // Create a mapping from old IDs to new IDs
-    const idMapping: { [key: number]: number } = {};
-    nodes.forEach((node, index) => {
-      idMapping[node.id] = index;
-      node.id = index;
-    });
-
-    // Create links based on actual job flows
-    const allLinks = [
-      // From Applied to Still Waiting
-      { source: 0, target: 1, value: flows.appliedStillWaiting },
-      // From Applied to In Process
-      { source: 0, target: 2, value: flows.movedToInterview },
-      // From In Process to Interviewing
-      { source: 2, target: 3, value: flows.interviewingCount },
-      // From In Process to Offers
-      { source: 2, target: 4, value: flows.offerCount },
-      // From In Process to Rejected
-      { source: 2, target: 5, value: flows.rejectedCount },
-    ];
-
-    // Filter links: only include if value > 0 and both source and target nodes exist
-    const links: SankeyLink[] = allLinks
-      .filter(
-        (link) =>
-          link.value > 0 &&
-          nodes.some((n) => n.id === idMapping[link.source]) &&
-          nodes.some((n) => n.id === idMapping[link.target])
-      )
-      .map((link) => ({
-        source: idMapping[link.source],
-        target: idMapping[link.target],
-        value: link.value,
-      }));
+    const { nodes, links } = buildStatusFlow();
+    const height = Math.max(280, nodes.length * 72 + 120);
 
     // Create sankey generator
     const margin = { top: 20, right: 30, bottom: 30, left: 30 };
     const sankeyGenerator = sankey<SankeyNode, SankeyLink>()
-      .nodeWidth(15)
-      .nodePadding(25)
+      .nodeWidth(18)
+      .nodePadding(16)
       .extent([
         [margin.left, margin.top],
         [width - margin.right, height - margin.bottom],
@@ -152,14 +155,14 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
     // Color scheme - soft muted palette
     const colorScale = d3
       .scaleOrdinal()
-      .domain(["Applied", "Still Waiting", "In Process", "Interviewing", "Offers", "Rejected"])
+      .domain(["APPLIED", "INTERVIEWING", "OFFER", "REJECTED", "WITHDRAWN", "NO_RESPONSE"])
       .range([
-        "#a8c4e0", // Applied - soft steel blue
-        "#c5d8eb", // Still Waiting - lighter blue
-        "#f0d080", // In Process - soft amber
-        "#f5e09a", // Interviewing - light yellow
-        "#9ecfaa", // Offers - sage green
-        "#e8a5a5", // Rejected - dusty rose
+        "#a8c4e0",
+        "#f5e09a",
+        "#9ecfaa",
+        "#e8a5a5",
+        "#c7c7c7",
+        "#f0b36b",
       ]);
 
     // Add links
@@ -202,7 +205,18 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
       .attr("text-anchor", (d) => ((d.x0 || 0) < width / 2 ? "start" : "end"))
       .style("font", "11px 'Onest', sans-serif")
       .style("fill", "#333")
-      .text((d) => `${d.name} (${d.value || 0})`);
+      .text((d) => {
+        const labelMap: Record<string, string> = {
+          APPLIED: "Applied",
+          INTERVIEWING: "Interviewing",
+          OFFER: "Offers",
+          REJECTED: "Rejected",
+          WITHDRAWN: "Withdrawn",
+          NO_RESPONSE: "No Response",
+        };
+
+        return `${labelMap[d.name] || d.name} (${d.value || 0})`;
+      });
   }, [stats, jobs]);
 
   const total = (stats.applied || 0) + (stats.interviewing || 0) + (stats.rejected || 0) + (stats.offer || 0);
@@ -238,8 +252,7 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
 
       {/* Sankey fills remaining space */}
       <div className="flex-1 flex flex-col overflow-hidden px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium text-gray-500">Application Status Distribution</h4>
+        <div className="flex items-center justify-end mb-2">
           <ShareMenu exportOptions={getStatsExportOptions(svgElement)} />
         </div>
         <div className="flex-1 overflow-x-auto">

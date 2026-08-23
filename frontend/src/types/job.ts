@@ -24,6 +24,13 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   NO_RESPONSE: "No Response",
 };
 
+export interface StatusHistoryEntry {
+  id?: string;
+  jobId?: string;
+  status: JobStatus;
+  changedAt: string;
+}
+
 export interface Job {
   id: string;
   company: string;
@@ -35,6 +42,7 @@ export interface Job {
   userId: string;
   url?: string | null;
   tableName?: string;
+  statusHistory?: StatusHistoryEntry[];
 }
 
 export type NewJobInput = Omit<Job, "id" | "userId" | "updatedAt">;

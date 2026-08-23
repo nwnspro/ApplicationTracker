@@ -10,11 +10,12 @@ class JobApplicationService {
       throw new Error('Validation failed: Invalid job application data');
     }
 
+    const initialStatus = data.status || 'APPLIED';
     const jobApplicationData = {
       user_id: userId,
       company: data.company.trim(),
       position: data.position ? data.position.trim() : data.company.trim() + ' Position',
-      status: data.status || 'APPLIED',
+      status: initialStatus,
       notes: data.notes || null,
       applied_date: data.appliedDate ? new Date(data.appliedDate).toISOString() : new Date().toISOString(),
       table_name: data.tableName || 'Table 1',
@@ -30,7 +31,21 @@ class JobApplicationService {
       throw new Error(`Failed to create job application: ${error.message}`);
     }
 
-    return this.toCamelCase(jobApplication);
+    const { error: historyError } = await supabase
+      .from('job_status_history')
+      .insert([{ job_id: jobApplication.id, status: initialStatus, changed_at: new Date().toISOString() }]);
+
+    if (historyError) {
+      throw new Error(`Failed to create job status history: ${historyError.message}`);
+    }
+
+    const { data: statusHistory } = await supabase
+      .from('job_status_history')
+      .select('*')
+      .eq('job_id', jobApplication.id)
+      .order('changed_at', { ascending: true });
+
+    return this.toCamelCase(jobApplication, statusHistory || []);
   }
 
   // Get all job applications for user
@@ -46,7 +61,7 @@ class JobApplicationService {
     // Build query
     let query = supabase
       .from('job_applications')
-      .select('*', { count: 'exact' })
+      .select(`*, status_history:job_status_history(id, status, changed_at)`, { count: 'exact' })
       .eq('user_id', userId);
 
     if (status) {
@@ -71,7 +86,7 @@ class JobApplicationService {
     }
 
     return {
-      jobApplications: jobApplications.map(job => this.toCamelCase(job)),
+      jobApplications: (jobApplications || []).map(job => this.toCamelCase(job, job.status_history || [])),
       pagination: {
         page,
         pageSize,
@@ -138,7 +153,23 @@ class JobApplicationService {
       throw new Error(`Failed to update job application: ${error.message}`);
     }
 
-    return this.toCamelCase(updated);
+    if (data.status && data.status !== existingJobApplication.status) {
+      const { error: historyError } = await supabase
+        .from('job_status_history')
+        .insert([{ job_id: id, status: data.status, changed_at: new Date().toISOString() }]);
+
+      if (historyError) {
+        throw new Error(`Failed to append status history: ${historyError.message}`);
+      }
+    }
+
+    const { data: statusHistory } = await supabase
+      .from('job_status_history')
+      .select('*')
+      .eq('job_id', id)
+      .order('changed_at', { ascending: true });
+
+    return this.toCamelCase(updated, statusHistory || []);
   }
 
   // Delete job application
@@ -197,7 +228,7 @@ class JobApplicationService {
   }
 
   // Helper: Convert snake_case to camelCase
-  toCamelCase(obj) {
+  toCamelCase(obj, statusHistory = []) {
     if (!obj) return obj;
 
     return {
@@ -211,6 +242,12 @@ class JobApplicationService {
       tableName: obj.table_name,
       createdAt: obj.created_at,
       updatedAt: obj.updated_at,
+      statusHistory: (statusHistory || []).map(entry => ({
+        id: entry.id,
+        jobId: obj.id,
+        status: entry.status,
+        changedAt: entry.changed_at || entry.changedAt,
+      })),
     };
   }
 }
