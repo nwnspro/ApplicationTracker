@@ -41,89 +41,69 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
 
     // Calculate container dimensions for Sankey
     const width = 1100;
+    const height = 420;
 
-    const buildStatusFlow = () => {
-      const transitions: Record<string, number> = {};
-      const nodeCounts: Record<string, number> = {};
-      const statusOrder = ["APPLIED", "INTERVIEWING", "OFFER", "REJECTED", "WITHDRAWN", "NO_RESPONSE"];
+    const analyzeJobFlows = () => {
+      const appliedCount = jobs.filter((j) => j.status === "APPLIED").length;
+      const interviewingCount = jobs.filter((j) => j.status === "INTERVIEWING").length;
+      const rejectedCount = jobs.filter((j) => j.status === "REJECTED").length;
+      const offerCount = jobs.filter((j) => j.status === "OFFER").length;
 
-      const normalizeStatus = (status?: string) => status || "APPLIED";
-
-      jobs.forEach((job) => {
-        const history = Array.isArray(job.statusHistory) && job.statusHistory.length > 0
-          ? [...job.statusHistory].sort((a, b) => new Date(a.changedAt).getTime() - new Date(b.changedAt).getTime())
-          : job.status === "APPLIED"
-            ? [{ status: "APPLIED", changedAt: job.appliedDate || job.updatedAt || new Date().toISOString() }]
-            : [
-                { status: "APPLIED", changedAt: job.appliedDate || job.updatedAt || new Date().toISOString() },
-                { status: job.status, changedAt: job.updatedAt || job.appliedDate || new Date().toISOString() },
-              ];
-
-        const statuses = history
-          .map((entry) => normalizeStatus(entry.status))
-          .filter((status, index, list) => index === 0 || status !== list[index - 1]);
-
-        statuses.forEach((status) => {
-          nodeCounts[status] = (nodeCounts[status] || 0) + 1;
-        });
-
-        for (let i = 1; i < statuses.length; i += 1) {
-          const key = `${statuses[i - 1]}__${statuses[i]}`;
-          transitions[key] = (transitions[key] || 0) + 1;
-        }
-      });
-
-      const orderedNames = Array.from(new Set([...statusOrder, ...Object.keys(nodeCounts)])).sort(
-        (a, b) => {
-          const aIndex = statusOrder.indexOf(a);
-          const bIndex = statusOrder.indexOf(b);
-
-          if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
-          if (aIndex === -1) return 1;
-          if (bIndex === -1) return -1;
-          return aIndex - bIndex;
-        }
-      );
-
-      const nodes: SankeyNode[] = orderedNames
-        .map((name, index) => ({
-          name,
-          id: index,
-          value: nodeCounts[name] || 0,
-        }))
-        .filter((node) => node.value > 0);
-
-      const idMap: Record<string, number> = {};
-      nodes.forEach((node, index) => {
-        idMap[node.name] = index;
-      });
-
-      const links: SankeyLink[] = Object.entries(transitions)
-        .map(([key, value]) => {
-          const [sourceName, targetName] = key.split("__");
-          if (idMap[sourceName] === undefined || idMap[targetName] === undefined) {
-            return null;
-          }
-
-          return {
-            source: idMap[sourceName],
-            target: idMap[targetName],
-            value,
-          };
-        })
-        .filter(Boolean) as SankeyLink[];
-
-      return { nodes, links };
+      return {
+        appliedCount: jobs.length,
+        interviewingCount,
+        rejectedCount,
+        offerCount,
+        appliedStillWaiting: appliedCount,
+        movedToInterview: interviewingCount + rejectedCount + offerCount,
+      };
     };
 
-    const { nodes, links } = buildStatusFlow();
-    const height = Math.max(280, nodes.length * 72 + 120);
+    const flows = analyzeJobFlows();
+
+    const allNodes = [
+      { name: "Applied", id: 0, value: flows.appliedCount },
+      { name: "Still Waiting", id: 1, value: flows.appliedStillWaiting },
+      { name: "In Process", id: 2, value: flows.movedToInterview },
+      { name: "Interviewing", id: 3, value: flows.interviewingCount },
+      { name: "Offers", id: 4, value: flows.offerCount },
+      { name: "Rejected", id: 5, value: flows.rejectedCount },
+    ];
+
+    const nodes: SankeyNode[] = allNodes.filter((node) => node.value > 0);
+
+    const idMapping: { [key: number]: number } = {};
+    nodes.forEach((node, index) => {
+      idMapping[node.id] = index;
+      node.id = index;
+    });
+
+    const allLinks = [
+      { source: 0, target: 1, value: flows.appliedStillWaiting },
+      { source: 0, target: 2, value: flows.movedToInterview },
+      { source: 2, target: 3, value: flows.interviewingCount },
+      { source: 2, target: 4, value: flows.offerCount },
+      { source: 2, target: 5, value: flows.rejectedCount },
+    ];
+
+    const links: SankeyLink[] = allLinks
+      .filter(
+        (link) =>
+          link.value > 0 &&
+          nodes.some((n) => n.id === idMapping[link.source]) &&
+          nodes.some((n) => n.id === idMapping[link.target])
+      )
+      .map((link) => ({
+        source: idMapping[link.source],
+        target: idMapping[link.target],
+        value: link.value,
+      }));
 
     // Create sankey generator
     const margin = { top: 20, right: 30, bottom: 30, left: 30 };
     const sankeyGenerator = sankey<SankeyNode, SankeyLink>()
-      .nodeWidth(18)
-      .nodePadding(16)
+      .nodeWidth(15)
+      .nodePadding(20)
       .extent([
         [margin.left, margin.top],
         [width - margin.right, height - margin.bottom],
@@ -160,14 +140,14 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
     // Color scheme - soft muted palette
     const colorScale = d3
       .scaleOrdinal()
-      .domain(["APPLIED", "INTERVIEWING", "OFFER", "REJECTED", "WITHDRAWN", "NO_RESPONSE"])
+      .domain(["Applied", "Still Waiting", "In Process", "Interviewing", "Offers", "Rejected"])
       .range([
         "#a8c4e0",
+        "#c5d8eb",
+        "#f0d080",
         "#f5e09a",
         "#9ecfaa",
         "#e8a5a5",
-        "#c7c7c7",
-        "#f0b36b",
       ]);
 
     // Add links
@@ -213,16 +193,7 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
       .style("font", "11px 'Onest', sans-serif")
       .style("fill", "#333")
       .text((d) => {
-        const labelMap: Record<string, string> = {
-          APPLIED: "Applied",
-          INTERVIEWING: "Interviewing",
-          OFFER: "Offers",
-          REJECTED: "Rejected",
-          WITHDRAWN: "Withdrawn",
-          NO_RESPONSE: "No Response",
-        };
-
-        return `${labelMap[d.name] || d.name} (${d.value || 0})`;
+        return `${d.name} (${d.value || 0})`;
       });
   }, [stats, jobs]);
 
