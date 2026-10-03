@@ -27,6 +27,7 @@ function App() {
     loadMoreJobs,
     hasMoreJobs,
     isLoadingMoreJobs,
+    statsError,
   } = useJobs(currentTable);
 
   const handleAddJob = (jobData: NewJobInput) => {
@@ -155,6 +156,7 @@ function App() {
           onLoadMore={loadMoreJobs}
           hasMoreJobs={hasMoreJobs}
           isLoadingMoreJobs={isLoadingMoreJobs}
+          statsError={statsError}
           showAddForm={showAddForm}
           setShowAddForm={setShowAddForm}
           currentTable={currentTable}

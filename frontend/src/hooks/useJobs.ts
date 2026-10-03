@@ -342,6 +342,7 @@ export function useJobs(currentTable: string = "Table 1") {
     stats: displayStats,
     jobsLoading,
     statsLoading: statsQuery.isLoading,
+    statsError: statsQuery.error,
     addJob: isUsingMockData ? handleMockAdd : addJobMutation.mutate,
     updateJob: isUsingMockData ? handleMockUpdate : updateJobMutation.mutate,
     deleteJob: isUsingMockData ? handleMockDelete : deleteJobMutation.mutate,

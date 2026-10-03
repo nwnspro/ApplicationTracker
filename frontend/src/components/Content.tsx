@@ -19,6 +19,7 @@ interface ContentProps {
   onLoadMore: () => void;
   hasMoreJobs: boolean | undefined;
   isLoadingMoreJobs: boolean;
+  statsError: Error | null;
   showAddForm: boolean;
   setShowAddForm: (show: boolean) => void;
   currentTable: string;
@@ -34,6 +35,7 @@ export function Content({
   onLoadMore,
   hasMoreJobs,
   isLoadingMoreJobs,
+  statsError,
 
   showAddForm,
   setShowAddForm,
@@ -675,7 +677,15 @@ export function Content({
 
   return (
     <div className="w-full max-w-[1260px] h-[calc(100vh-196px)] bg-white rounded-[20px] shadow-[0px_24px_80px_-40px_rgba(0,0,0,0.25)] overflow-hidden">
-      {stats && <JobStatsComponent stats={stats} jobs={jobs} />}
+      {stats ? (
+        <JobStatsComponent stats={stats} jobs={jobs} />
+      ) : (
+        <div className="h-full flex items-center justify-center text-sm text-gray-500">
+          {statsError
+            ? "Statistics are temporarily unavailable. Please refresh shortly."
+            : "Loading statistics..."}
+        </div>
+      )}
     </div>
   );
 }

@@ -139,9 +139,7 @@ class JobApplicationService {
       : { data: [], error: null };
 
     if (historyError) {
-      throw new Error(
-        `Failed to calculate job statistics: ${historyError.message}`,
-      );
+      console.warn("Status history unavailable for statistics:", historyError.message);
     }
 
     const historyByJobId = new Map();
