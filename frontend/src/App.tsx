@@ -11,14 +11,23 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 function App() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [viewMode, setViewMode] = useState<"table" | "stats" | "todos">(
-    "table"
+    "table",
   );
   const [inputValue, setInputValue] = useState("");
   const [currentTable, setCurrentTable] = useState("Table 1");
   const [tables, setTables] = useState(["Table 1"]);
   const [todoRefreshKey, setTodoRefreshKey] = useState(0);
 
-  const { jobs, stats, addJob, updateJob, deleteJob } = useJobs(currentTable);
+  const {
+    jobs,
+    stats,
+    addJob,
+    updateJob,
+    deleteJob,
+    loadMoreJobs,
+    hasMoreJobs,
+    isLoadingMoreJobs,
+  } = useJobs(currentTable);
 
   const handleAddJob = (jobData: NewJobInput) => {
     // Ensure the job is added to the correct table
@@ -38,8 +47,7 @@ function App() {
     if (window.confirm("Are you sure you want to delete this job?")) {
       // Check if table will be empty after deletion (before actually deleting)
       const remainingJobs = jobs.filter(
-        (job) =>
-          (job.tableName || "Table 1") === currentTable && job.id !== id
+        (job) => (job.tableName || "Table 1") === currentTable && job.id !== id,
       );
 
       // Auto-delete empty tables if there are multiple tables
@@ -104,7 +112,7 @@ function App() {
     } catch (error) {
       console.error("Error adding todo:", error);
       alert(
-        "Failed to add URL to todo list. Please check if the URL is valid."
+        "Failed to add URL to todo list. Please check if the URL is valid.",
       );
     }
   };
@@ -144,6 +152,9 @@ function App() {
           onDeleteJob={handleDeleteJob}
           onAddJob={handleAddJob}
           onExport={exportData}
+          onLoadMore={loadMoreJobs}
+          hasMoreJobs={hasMoreJobs}
+          isLoadingMoreJobs={isLoadingMoreJobs}
           showAddForm={showAddForm}
           setShowAddForm={setShowAddForm}
           currentTable={currentTable}

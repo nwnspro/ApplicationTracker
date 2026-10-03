@@ -1,8 +1,13 @@
-import { useState, useMemo } from "react";
+import { Fragment, useState, useMemo } from "react";
 
 import { JobStatsComponent } from "./JobStats";
 import { TodoList } from "./TodoList";
-import { Job, JobStatus, NewJobInput } from "../types/job";
+import {
+  JOB_STATUS_LABELS,
+  Job,
+  JobStatus,
+  NewJobInput,
+} from "../types/job";
 import { Search, Frown, Plus } from "lucide-react";
 
 import { ShareMenu } from "./ShareMenu";
@@ -16,6 +21,9 @@ interface ContentProps {
   onDeleteJob: (id: string) => void;
   onAddJob: (jobData: NewJobInput) => void;
   onExport: () => void;
+  onLoadMore: () => void;
+  hasMoreJobs: boolean | undefined;
+  isLoadingMoreJobs: boolean;
   showAddForm: boolean;
   setShowAddForm: (show: boolean) => void;
   currentTable: string;
@@ -28,6 +36,9 @@ export function Content({
   onUpdateJob,
   onDeleteJob,
   onAddJob,
+  onLoadMore,
+  hasMoreJobs,
+  isLoadingMoreJobs,
 
   showAddForm,
   setShowAddForm,
@@ -43,12 +54,13 @@ export function Content({
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<string>("");
   const [showSadFace, setShowSadFace] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   // Search functionality
   const filteredJobs = useMemo(() => {
     if (!searchQuery) return jobs;
     const filtered = jobs.filter((job) =>
-      job.company.toLowerCase().includes(searchQuery.toLowerCase())
+      job.company.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
     if (filtered.length === 0) {
@@ -96,16 +108,16 @@ export function Content({
     const job = jobs.find((item) => item.id === jobId);
     const value =
       field === "appliedDate"
-        ? job?.appliedDate ?? ""
+        ? (job?.appliedDate ?? "")
         : field === "notes"
-        ? job?.notes ?? ""
-        : field === "company"
-        ? job?.company ?? ""
-        : field === "position"
-        ? job?.position ?? ""
-        : field === "status"
-        ? job?.status ?? ""
-        : "";
+          ? (job?.notes ?? "")
+          : field === "company"
+            ? (job?.company ?? "")
+            : field === "position"
+              ? (job?.position ?? "")
+              : field === "status"
+                ? (job?.status ?? "")
+                : "";
 
     setEditingRow(jobId);
     setEditingCell({ id: jobId, field });
@@ -124,7 +136,8 @@ export function Content({
       <TodoList
         onApplied={(url, companyName) => {
           // When a todo is marked as applied, add it to the current table
-          const defaultPosition = currentTable === "Table 2" ? "Part-time" : "Software Developer";
+          const defaultPosition =
+            currentTable === "Table 2" ? "Part-time" : "Software Developer";
           onAddJob({
             company: companyName,
             position: defaultPosition,
@@ -220,9 +233,16 @@ export function Content({
 
           {/* Table Body - Conditional Scrollable */}
           <div
-            className={`flex-1 min-h-0 overflow-x-auto ${
-              sortedJobs.length > 10 ? "overflow-y-auto" : "overflow-y-hidden"
-            }`}
+            className="flex-1 min-h-0 overflow-x-auto overflow-y-auto"
+            onScroll={(event) => {
+              const element = event.currentTarget;
+              const isNearBottom =
+                element.scrollTop + element.clientHeight >=
+                element.scrollHeight - 120;
+              if (isNearBottom && hasMoreJobs && !isLoadingMoreJobs) {
+                onLoadMore();
+              }
+            }}
           >
             {/* Add Job Form Row */}
             {showAddForm && (
@@ -231,19 +251,19 @@ export function Content({
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     const dateEl = document.getElementById(
-                      "add-date"
+                      "add-date",
                     ) as HTMLInputElement;
                     const companyEl = document.getElementById(
-                      "add-company"
+                      "add-company",
                     ) as HTMLInputElement;
                     const positionEl = document.getElementById(
-                      "add-position"
+                      "add-position",
                     ) as HTMLInputElement;
                     const statusEl = document.getElementById(
-                      "add-status"
+                      "add-status",
                     ) as HTMLSelectElement;
                     const notesEl = document.getElementById(
-                      "add-notes"
+                      "add-notes",
                     ) as HTMLInputElement;
 
                     if (companyEl.value && positionEl.value) {
@@ -293,7 +313,11 @@ export function Content({
                   <input
                     type="text"
                     placeholder="Job title"
-                    defaultValue={currentTable === "Table 2" ? "Part-time" : "Software Developer"}
+                    defaultValue={
+                      currentTable === "Table 2"
+                        ? "Part-time"
+                        : "Software Developer"
+                    }
                     className="w-full h-8 px-2 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                     id="add-position"
                   />
@@ -325,15 +349,21 @@ export function Content({
               </div>
             )}
 
+            {isLoadingMoreJobs && (
+              <div className="py-3 text-center text-sm text-gray-500 min-w-[700px]">
+                Loading more applications...
+              </div>
+            )}
+
             {/* Render Jobs */}
             <div className="min-h-full">
               {sortedJobs.map((job, index) => (
-                <div
-                  key={job.id}
-                  className={`grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 hover:bg-gray-50 transition-colors min-w-[700px] ${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  }`}
-                >
+                <Fragment key={job.id}>
+                  <div
+                    className={`grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 hover:bg-gray-50 transition-colors min-w-[700px] ${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    }`}
+                  >
                   {/* Date Field */}
                   <div
                     className={`p-3 border-r border-gray-100 ${
@@ -350,7 +380,9 @@ export function Content({
                         type="date"
                         value={editingDraft}
                         onChange={(e) => setEditingDraft(e.target.value)}
-                        onBlur={() => handleCellEdit(job.id, "appliedDate", editingDraft)}
+                        onBlur={() =>
+                          handleCellEdit(job.id, "appliedDate", editingDraft)
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
@@ -389,7 +421,9 @@ export function Content({
                         type="text"
                         value={editingDraft}
                         onChange={(e) => setEditingDraft(e.target.value)}
-                        onBlur={() => handleCellEdit(job.id, "company", editingDraft)}
+                        onBlur={() =>
+                          handleCellEdit(job.id, "company", editingDraft)
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
@@ -426,7 +460,9 @@ export function Content({
                         type="text"
                         value={editingDraft}
                         onChange={(e) => setEditingDraft(e.target.value)}
-                        onBlur={() => handleCellEdit(job.id, "position", editingDraft)}
+                        onBlur={() =>
+                          handleCellEdit(job.id, "position", editingDraft)
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
@@ -510,22 +546,26 @@ export function Content({
                             job.status === "APPLIED"
                               ? "bg-blue-100 text-blue-800"
                               : job.status === "INTERVIEWING"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : job.status === "REJECTED"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-green-100 text-green-800" // OFFER
+                                ? "bg-yellow-100 text-yellow-800"
+                                : job.status === "REJECTED"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-green-100 text-green-800" // OFFER
                           }`}
                         >
-                          {job.status === "APPLIED" ? "Applied" :
-                           job.status === "INTERVIEWING" ? "Interviewing" :
-                           job.status === "REJECTED" ? "Rejected" : "Offer"}
+                          {job.status === "APPLIED"
+                            ? "Applied"
+                            : job.status === "INTERVIEWING"
+                              ? "Interviewing"
+                              : job.status === "REJECTED"
+                                ? "Rejected"
+                                : "Offer"}
                         </span>
                       </div>
                     )}
                   </div>
 
                   {/* Notes Field with Action Buttons - Clean edit style */}
-                  <div className="p-3 flex items-center gap-2">
+                    <div className="p-3 flex items-center gap-2">
                     <div
                       className="flex-1 cursor-pointer"
                       onClick={() => handleCellClick(job.id, "notes")}
@@ -536,7 +576,9 @@ export function Content({
                           type="text"
                           value={editingDraft}
                           onChange={(e) => setEditingDraft(e.target.value)}
-                          onBlur={() => handleCellEdit(job.id, "notes", editingDraft)}
+                          onBlur={() =>
+                            handleCellEdit(job.id, "notes", editingDraft)
+                          }
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
                               e.preventDefault();
@@ -561,6 +603,17 @@ export function Content({
 
                     {/* Action Buttons */}
                     <button
+                      onClick={() =>
+                        setExpandedHistoryId(
+                          expandedHistoryId === job.id ? null : job.id,
+                        )
+                      }
+                      className="text-gray-400 hover:text-gray-600 transition-colors text-xs"
+                      title="View status history"
+                    >
+                      History
+                    </button>
+                    <button
                       onClick={() => onDeleteJob(job.id)}
                       className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-light leading-none"
                       title="Delete"
@@ -568,7 +621,37 @@ export function Content({
                       −
                     </button>
                   </div>
-                </div>
+                  </div>
+
+                  {expandedHistoryId === job.id && (
+                    <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 min-w-[700px]">
+                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500 mb-2">
+                        Status history
+                      </div>
+                      {job.statusHistory && job.statusHistory.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {job.statusHistory.map((entry) => (
+                            <div
+                              key={entry.id ?? `${job.id}-${entry.changedAt}`}
+                              className="rounded border border-gray-200 bg-white px-3 py-2 text-sm"
+                            >
+                              <div className="font-medium text-gray-800">
+                                {JOB_STATUS_LABELS[entry.status] ?? entry.status}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(entry.changedAt).toLocaleString()}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">
+                          No status history recorded.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Fragment>
               ))}
 
               {/* Empty state when no jobs */}

@@ -19,6 +19,12 @@ router.get(
   jobApplicationController.getUserJobApplications.bind(jobApplicationController)
 );
 
+router.get(
+  "/stats",
+  authenticateUser,
+  jobApplicationController.getJobStats.bind(jobApplicationController)
+);
+
 // Search job applications
 router.get(
   "/search",

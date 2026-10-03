@@ -17,7 +17,9 @@ async function getToken(): Promise<string> {
   if (cachedToken && Date.now() < tokenExpiry - 30_000) {
     return cachedToken;
   }
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   cachedToken = session?.access_token ?? null;
   tokenExpiry = session ? (session.expires_at ?? 0) * 1000 : 0;
   if (!cachedToken) throw new Error("UNAUTHENTICATED");
@@ -27,7 +29,7 @@ async function getToken(): Promise<string> {
 // Helper function to make authenticated API requests
 async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const token = await getToken();
@@ -62,15 +64,21 @@ async function apiRequest<T>(
 }
 
 export const jobService = {
-  async getJobs(): Promise<Job[]> {
-    const result = await apiRequest<{ jobApplications: Job[] }>(
-      "/applications"
-    );
-    return result?.jobApplications ?? [];
+  async getJobs(
+    page = 1,
+    pageSize = 50,
+  ): Promise<{
+    jobApplications: Job[];
+    pagination: { page: number; totalPages: number };
+  }> {
+    return await apiRequest<{
+      jobApplications: Job[];
+      pagination: { page: number; totalPages: number };
+    }>(`/applications?page=${page}&pageSize=${pageSize}`);
   },
 
   async addJob(
-    jobData: Omit<Job, "id" | "userId" | "updatedAt">
+    jobData: Omit<Job, "id" | "userId" | "updatedAt">,
   ): Promise<Job> {
     return await apiRequest<Job>("/applications", {
       method: "POST",
@@ -98,27 +106,45 @@ export const jobService = {
     });
   },
 
-  // Helper function to calculate stats from jobs array
-  // This can be used by React Query to derive stats from existing jobs query
   calculateStats(jobs: Job[]): JobStats {
     const total = jobs.length;
-    const applied = jobs.filter((job) => job.status === "APPLIED").length;
-    const rejected = jobs.filter((job) => job.status === "REJECTED").length;
-    const offer = jobs.filter(
-      (job) => job.status === "OFFER" || job.status === "OFFER_RECEIVED"
-    ).length;
-    const interviewing = jobs.filter(
+    const interviewStatuses = new Set([
+      "INTERVIEWING",
+      "INTERVIEW_SCHEDULED",
+      "INTERVIEW_COMPLETED",
+    ]);
+    const interviewed = jobs.filter(
       (job) =>
-        job.status === "INTERVIEWING" ||
-        job.status === "INTERVIEW_SCHEDULED" ||
-        job.status === "INTERVIEW_COMPLETED"
+        interviewStatuses.has(job.status) ||
+        job.statusHistory?.some((entry) => interviewStatuses.has(entry.status)),
+    );
+    const rejected = jobs.filter((job) => job.status === "REJECTED").length;
+    const rejectedAfterInterview = jobs.filter(
+      (job) =>
+        job.status === "REJECTED" &&
+        interviewed.some((interviewedJob) => interviewedJob.id === job.id),
+    ).length;
+    const rejectedWithoutInterview = rejected - rejectedAfterInterview;
+    const noResponse = jobs.filter(
+      (job) =>
+        job.status !== "REJECTED" &&
+        !interviewed.some((interviewedJob) => interviewedJob.id === job.id),
     ).length;
 
-    return { total, applied, interviewing, rejected, offer };
+    return {
+      total,
+      applied: total,
+      interviewing: interviewed.length,
+      rejected,
+      noResponse,
+      rejectedAfterInterview,
+      rejectedWithoutInterview,
+    };
   },
 
-  async getJobStats(): Promise<JobStats> {
-    const jobs = await this.getJobs();
-    return this.calculateStats(jobs);
+  async getJobStats(tableName = "Table 1"): Promise<JobStats> {
+    return await apiRequest<JobStats>(
+      `/applications/stats?tableName=${encodeURIComponent(tableName)}`,
+    );
   },
 };

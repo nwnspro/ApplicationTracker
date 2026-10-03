@@ -1,5 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { jobService } from "../services/jobService";
 import { Job } from "../types/job";
 import { supabase } from "../lib/supabase";
@@ -11,7 +16,8 @@ const mockJobs: Job[] = [
     company: "Auckland Zoo",
     position: "Senior Elephant",
     status: "APPLIED",
-    notes: "Elephants can recognize themselves in mirrors - one of few animals with self-awareness!",
+    notes:
+      "Elephants can recognize themselves in mirrors - one of few animals with self-awareness!",
     appliedDate: "2025-10-20",
     updatedAt: "2025-10-20",
     userId: "mock-user",
@@ -22,7 +28,8 @@ const mockJobs: Job[] = [
     company: "Wellington Zoo",
     position: "Intermediate Kiwi",
     status: "APPLIED",
-    notes: "Kiwi birds are flightless and have nostrils at the end of their beaks!",
+    notes:
+      "Kiwi birds are flightless and have nostrils at the end of their beaks!",
     appliedDate: "2025-10-18",
     updatedAt: "2025-10-18",
     userId: "mock-user",
@@ -33,7 +40,8 @@ const mockJobs: Job[] = [
     company: "Orana Wildlife Park",
     position: "Junior Kea",
     status: "INTERVIEWING",
-    notes: "Keas are the world's only alpine parrot and are incredibly intelligent!",
+    notes:
+      "Keas are the world's only alpine parrot and are incredibly intelligent!",
     appliedDate: "2025-10-15",
     updatedAt: "2025-10-20",
     userId: "mock-user",
@@ -88,7 +96,8 @@ const mockJobs: Job[] = [
     company: "National Aquarium NZ",
     position: "Senior Little Blue Penguin",
     status: "INTERVIEWING",
-    notes: "Little Blue Penguins are the smallest penguin species and native to NZ!",
+    notes:
+      "Little Blue Penguins are the smallest penguin species and native to NZ!",
     appliedDate: "2025-10-21",
     updatedAt: "2025-10-21",
     userId: "mock-user",
@@ -121,7 +130,8 @@ const mockJobs: Job[] = [
     company: "Kiwi Birdlife Park",
     position: "Senior Kiwi",
     status: "OFFER",
-    notes: "Kiwi lay one of the largest eggs relative to body size of any bird!",
+    notes:
+      "Kiwi lay one of the largest eggs relative to body size of any bird!",
     appliedDate: "2025-10-14",
     updatedAt: "2025-10-16",
     userId: "mock-user",
@@ -132,7 +142,8 @@ const mockJobs: Job[] = [
     company: "Rainbow Springs",
     position: "Intermediate Tuatara",
     status: "INTERVIEWING",
-    notes: "Tuataras are living fossils that have barely changed in 200 million years!",
+    notes:
+      "Tuataras are living fossils that have barely changed in 200 million years!",
     appliedDate: "2025-10-11",
     updatedAt: "2025-10-13",
     userId: "mock-user",
@@ -183,7 +194,9 @@ export function useJobs(currentTable: string = "Table 1") {
     let isMounted = true;
 
     const syncAuthState = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!isMounted) return;
       setIsGuest(!session);
       setAuthReady(true);
@@ -191,7 +204,9 @@ export function useJobs(currentTable: string = "Table 1") {
 
     syncAuthState();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
       setIsGuest(!session);
       setAuthReady(true);
@@ -203,9 +218,14 @@ export function useJobs(currentTable: string = "Table 1") {
     };
   }, []);
 
-  const { data: jobs = [], isLoading: jobsLoading } = useQuery({
+  const jobsQuery = useInfiniteQuery({
     queryKey: ["jobs"],
-    queryFn: jobService.getJobs,
+    queryFn: ({ pageParam }) => jobService.getJobs(pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.pagination.page < lastPage.pagination.totalPages
+        ? lastPage.pagination.page + 1
+        : undefined,
     enabled: authReady && !isGuest,
     retry: false,
     staleTime: 60_000,
@@ -213,23 +233,33 @@ export function useJobs(currentTable: string = "Table 1") {
     refetchOnWindowFocus: false,
   });
 
-  // Calculate stats from existing jobs data instead of making a separate query
-  const stats = useMemo(() => {
-    if (!jobs || jobs.length === 0) return null;
-    return jobService.calculateStats(jobs);
-  }, [jobs]);
+  const jobs = useMemo(
+    () => jobsQuery.data?.pages.flatMap((page) => page.jobApplications) ?? [],
+    [jobsQuery.data],
+  );
+  const jobsLoading = jobsQuery.isLoading;
+
+  const statsQuery = useQuery({
+    queryKey: ["jobStats", currentTable],
+    queryFn: () => jobService.getJobStats(currentTable),
+    enabled: authReady && !isGuest,
+    retry: false,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
 
   const allJobs = isGuest ? localMockJobs : jobs;
-  const displayJobs = allJobs.filter(job => (job.tableName || "Table 1") === currentTable);
+  const displayJobs = allJobs.filter(
+    (job) => (job.tableName || "Table 1") === currentTable,
+  );
   const isUsingMockData = isGuest;
 
   const addJobMutation = useMutation({
     mutationFn: jobService.addJob,
-    onSuccess: (newJob: Job) => {
-      queryClient.setQueryData<Job[]>(["jobs"], (old: Job[] | undefined) => {
-        if (!old) return [newJob];
-        return [...old.filter((job: Job) => !job.id.startsWith("temp-")), newJob];
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["jobStats"] });
     },
     onError: (_error: Error) => {
       console.error("Failed to add job", _error);
@@ -239,13 +269,9 @@ export function useJobs(currentTable: string = "Table 1") {
   const updateJobMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Job> }) =>
       jobService.updateJob(id, updates),
-    onSuccess: (updatedJob: Job) => {
-      queryClient.setQueryData<Job[]>(["jobs"], (old: Job[] | undefined) => {
-        if (!old) return [updatedJob];
-        return old.map((job: Job) =>
-          job.id === updatedJob.id ? updatedJob : job
-        );
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["jobStats"] });
     },
     onError: (_error: Error) => {
       console.error("Failed to update job", _error);
@@ -254,11 +280,9 @@ export function useJobs(currentTable: string = "Table 1") {
 
   const deleteJobMutation = useMutation({
     mutationFn: jobService.deleteJob,
-    onSuccess: (_result, deletedId: string) => {
-      queryClient.setQueryData<Job[]>(["jobs"], (old: Job[] | undefined) => {
-        if (!old) return [];
-        return old.filter((job: Job) => job.id !== deletedId);
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      queryClient.invalidateQueries({ queryKey: ["jobStats"] });
     },
     onError: (_error: Error) => {
       console.error("Failed to delete job", _error);
@@ -267,20 +291,14 @@ export function useJobs(currentTable: string = "Table 1") {
 
   // Calculate mock stats from mock jobs if user is a guest
   const displayStats = useMemo(() => {
-    if (isGuest || !stats) {
+    if (isGuest) {
+      const guestStats = jobService.calculateStats(displayJobs);
       return {
-        total: displayJobs.length,
-        applied: displayJobs.length, // Total applications, not just "APPLIED" status
-        interviewing: displayJobs.filter((j: Job) => j.status === "INTERVIEWING").length,
-        rejected: displayJobs.filter((j: Job) => j.status === "REJECTED").length,
-        offer: displayJobs.filter((j: Job) => j.status === "OFFER").length,
+        ...guestStats,
       };
     }
-    return {
-      ...stats,
-      applied: displayJobs.length, // Override to show total count
-    };
-  }, [isGuest, stats, displayJobs]);
+    return statsQuery.data ?? null;
+  }, [isGuest, statsQuery.data, displayJobs]);
 
   // Mock handlers for when user is not logged in
   const handleMockAdd = (jobData: Omit<Job, "id" | "userId" | "updatedAt">) => {
@@ -294,28 +312,41 @@ export function useJobs(currentTable: string = "Table 1") {
     setLocalMockJobs((prevJobs) => [...prevJobs, newJob]);
   };
 
-  const handleMockUpdate = ({ id, updates }: { id: string; updates: Partial<Job> }) => {
+  const handleMockUpdate = ({
+    id,
+    updates,
+  }: {
+    id: string;
+    updates: Partial<Job>;
+  }) => {
     setLocalMockJobs((prevJobs) =>
       prevJobs.map((job: Job) =>
-        job.id === id ? { ...job, ...updates, updatedAt: new Date().toISOString() } : job
-      )
+        job.id === id
+          ? { ...job, ...updates, updatedAt: new Date().toISOString() }
+          : job,
+      ),
     );
   };
 
   const handleMockDelete = (id: string) => {
-    setLocalMockJobs((prevJobs) => prevJobs.filter((job: Job) => job.id !== id));
+    setLocalMockJobs((prevJobs) =>
+      prevJobs.filter((job: Job) => job.id !== id),
+    );
   };
 
   return {
     jobs: displayJobs,
     stats: displayStats,
     jobsLoading,
-    statsLoading: jobsLoading, // Stats are derived from jobs, so use same loading state
+    statsLoading: statsQuery.isLoading,
     addJob: isUsingMockData ? handleMockAdd : addJobMutation.mutate,
     updateJob: isUsingMockData ? handleMockUpdate : updateJobMutation.mutate,
     deleteJob: isUsingMockData ? handleMockDelete : deleteJobMutation.mutate,
     isAdding: addJobMutation.isPending,
     isUpdating: updateJobMutation.isPending,
     isDeleting: deleteJobMutation.isPending,
+    loadMoreJobs: jobsQuery.fetchNextPage,
+    hasMoreJobs: jobsQuery.hasNextPage,
+    isLoadingMoreJobs: jobsQuery.isFetchingNextPage,
   };
 }

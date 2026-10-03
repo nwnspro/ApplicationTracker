@@ -52,6 +52,19 @@ class JobApplicationController {
     }
   }
 
+  async getJobStats(req, res) {
+    try {
+      const stats = await jobApplicationService.getJobStats(
+        req.user.id,
+        req.query.tableName,
+      );
+      res.json(stats);
+    } catch (error) {
+      console.error("Error getting job statistics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  }
+
   // Get job application by ID
   async getJobApplicationById(req, res) {
     try {

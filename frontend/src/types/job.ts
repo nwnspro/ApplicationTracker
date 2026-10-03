@@ -57,6 +57,8 @@ export interface JobStats {
   total: number;
   applied: number;
   interviewing: number;
-  offer: number;
   rejected: number;
+  noResponse: number;
+  rejectedAfterInterview: number;
+  rejectedWithoutInterview: number;
 }

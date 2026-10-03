@@ -1,5 +1,5 @@
-import { supabase } from '../config/supabase.js';
-import { ValidationUtils } from '../utils/validation.js';
+import { supabase } from "../config/supabase.js";
+import { ValidationUtils } from "../utils/validation.js";
 
 class JobApplicationService {
   // Create job application
@@ -7,22 +7,26 @@ class JobApplicationService {
     // Validate input data - the method returns boolean
     const isValid = ValidationUtils.validateCreateJobApplicationRequest(data);
     if (!isValid) {
-      throw new Error('Validation failed: Invalid job application data');
+      throw new Error("Validation failed: Invalid job application data");
     }
 
-    const initialStatus = data.status || 'APPLIED';
+    const initialStatus = data.status || "APPLIED";
     const jobApplicationData = {
       user_id: userId,
       company: data.company.trim(),
-      position: data.position ? data.position.trim() : data.company.trim() + ' Position',
+      position: data.position
+        ? data.position.trim()
+        : data.company.trim() + " Position",
       status: initialStatus,
       notes: data.notes || null,
-      applied_date: data.appliedDate ? new Date(data.appliedDate).toISOString() : new Date().toISOString(),
-      table_name: data.tableName || 'Table 1',
+      applied_date: data.appliedDate
+        ? new Date(data.appliedDate).toISOString()
+        : new Date().toISOString(),
+      table_name: data.tableName || "Table 1",
     };
 
     const { data: jobApplication, error } = await supabase
-      .from('job_applications')
+      .from("job_applications")
       .insert([jobApplicationData])
       .select()
       .single();
@@ -32,18 +36,26 @@ class JobApplicationService {
     }
 
     const { error: historyError } = await supabase
-      .from('job_status_history')
-      .insert([{ job_id: jobApplication.id, status: initialStatus, changed_at: new Date().toISOString() }]);
+      .from("job_status_history")
+      .insert([
+        {
+          job_id: jobApplication.id,
+          status: initialStatus,
+          changed_at: new Date().toISOString(),
+        },
+      ]);
 
     if (historyError) {
-      throw new Error(`Failed to create job status history: ${historyError.message}`);
+      throw new Error(
+        `Failed to create job status history: ${historyError.message}`,
+      );
     }
 
     const { data: statusHistory } = await supabase
-      .from('job_status_history')
-      .select('*')
-      .eq('job_id', jobApplication.id)
-      .order('changed_at', { ascending: true });
+      .from("job_status_history")
+      .select("*")
+      .eq("job_id", jobApplication.id)
+      .order("changed_at", { ascending: true });
 
     return this.toCamelCase(jobApplication, statusHistory || []);
   }
@@ -54,25 +66,31 @@ class JobApplicationService {
       status,
       page = 1,
       pageSize = 50,
-      sortBy = 'appliedDate',
-      sortOrder = 'desc'
+      sortBy = "appliedDate",
+      sortOrder = "desc",
     } = options;
 
     // Build query
     let query = supabase
-      .from('job_applications')
-      .select(`*, status_history:job_status_history(id, status, changed_at)`, { count: 'exact' })
-      .eq('user_id', userId);
+      .from("job_applications")
+      .select(`*, status_history:job_status_history(id, status, changed_at)`, {
+        count: "exact",
+      })
+      .eq("user_id", userId);
 
     if (status) {
-      query = query.eq('status', status);
+      query = query.eq("status", status);
     }
 
     // Convert camelCase to snake_case for sorting
-    const sortColumn = sortBy === 'appliedDate' ? 'applied_date' :
-                       sortBy === 'updatedAt' ? 'updated_at' : sortBy;
+    const sortColumn =
+      sortBy === "appliedDate"
+        ? "applied_date"
+        : sortBy === "updatedAt"
+          ? "updated_at"
+          : sortBy;
 
-    query = query.order(sortColumn, { ascending: sortOrder === 'asc' });
+    query = query.order(sortColumn, { ascending: sortOrder === "asc" });
 
     // Pagination
     const from = (page - 1) * pageSize;
@@ -86,7 +104,9 @@ class JobApplicationService {
     }
 
     return {
-      jobApplications: (jobApplications || []).map(job => this.toCamelCase(job, job.status_history || [])),
+      jobApplications: (jobApplications || []).map((job) =>
+        this.toCamelCase(job, job.status_history || []),
+      ),
       pagination: {
         page,
         pageSize,
@@ -96,16 +116,63 @@ class JobApplicationService {
     };
   }
 
+  async getJobStats(userId, tableName) {
+    let query = supabase
+      .from("job_applications")
+      .select("status, table_name, status_history:job_status_history(status)")
+      .eq("user_id", userId);
+
+    if (tableName) query = query.eq("table_name", tableName);
+
+    const { data: applications, error } = await query;
+    if (error) {
+      throw new Error(`Failed to calculate job statistics: ${error.message}`);
+    }
+
+    const interviewStatuses = new Set([
+      "INTERVIEWING",
+      "INTERVIEW_SCHEDULED",
+      "INTERVIEW_COMPLETED",
+    ]);
+    const interviewed = (applications || []).filter((application) =>
+      application.status_history?.some((entry) =>
+        interviewStatuses.has(entry.status),
+      ) || interviewStatuses.has(application.status),
+    );
+    const rejected = (applications || []).filter(
+      (application) => application.status === "REJECTED",
+    );
+    const noResponse = (applications || []).filter(
+      (application) =>
+        application.status !== "REJECTED" &&
+        !interviewed.includes(application),
+    );
+
+    return {
+      total: applications?.length || 0,
+      applied: applications?.length || 0,
+      interviewing: interviewed.length,
+      rejected: rejected.length,
+      noResponse: noResponse.length,
+      rejectedAfterInterview: rejected.filter((application) =>
+        interviewed.includes(application),
+      ).length,
+      rejectedWithoutInterview: rejected.filter(
+        (application) => !interviewed.includes(application),
+      ).length,
+    };
+  }
+
   // Get job application by ID
   async getJobApplicationById(id) {
     const { data: jobApplication, error } = await supabase
-      .from('job_applications')
-      .select('*')
-      .eq('id', id)
+      .from("job_applications")
+      .select("*")
+      .eq("id", id)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === "PGRST116") {
         return null; // Not found
       }
       throw new Error(`Failed to fetch job application: ${error.message}`);
@@ -120,17 +187,17 @@ class JobApplicationService {
     const existingJobApplication = await this.getJobApplicationById(id);
 
     if (!existingJobApplication) {
-      throw new Error('Job application not found');
+      throw new Error("Job application not found");
     }
 
     if (existingJobApplication.userId !== userId) {
-      throw new Error('Unauthorized: Cannot update this job application');
+      throw new Error("Unauthorized: Cannot update this job application");
     }
 
     // Validate update data - the method returns boolean
     const isValid = ValidationUtils.validateUpdateJobApplicationRequest(data);
     if (!isValid) {
-      throw new Error('Validation failed: Invalid update data');
+      throw new Error("Validation failed: Invalid update data");
     }
 
     // Prepare update data (convert to snake_case)
@@ -139,13 +206,14 @@ class JobApplicationService {
     if (data.position) updateData.position = data.position.trim();
     if (data.status) updateData.status = data.status;
     if (data.notes !== undefined) updateData.notes = data.notes;
-    if (data.appliedDate) updateData.applied_date = new Date(data.appliedDate).toISOString();
+    if (data.appliedDate)
+      updateData.applied_date = new Date(data.appliedDate).toISOString();
     if (data.tableName !== undefined) updateData.table_name = data.tableName;
 
     const { data: updated, error } = await supabase
-      .from('job_applications')
+      .from("job_applications")
       .update(updateData)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -155,19 +223,27 @@ class JobApplicationService {
 
     if (data.status && data.status !== existingJobApplication.status) {
       const { error: historyError } = await supabase
-        .from('job_status_history')
-        .insert([{ job_id: id, status: data.status, changed_at: new Date().toISOString() }]);
+        .from("job_status_history")
+        .insert([
+          {
+            job_id: id,
+            status: data.status,
+            changed_at: new Date().toISOString(),
+          },
+        ]);
 
       if (historyError) {
-        throw new Error(`Failed to append status history: ${historyError.message}`);
+        throw new Error(
+          `Failed to append status history: ${historyError.message}`,
+        );
       }
     }
 
     const { data: statusHistory } = await supabase
-      .from('job_status_history')
-      .select('*')
-      .eq('job_id', id)
-      .order('changed_at', { ascending: true });
+      .from("job_status_history")
+      .select("*")
+      .eq("job_id", id)
+      .order("changed_at", { ascending: true });
 
     return this.toCamelCase(updated, statusHistory || []);
   }
@@ -178,17 +254,17 @@ class JobApplicationService {
     const existingJobApplication = await this.getJobApplicationById(id);
 
     if (!existingJobApplication) {
-      throw new Error('Job application not found');
+      throw new Error("Job application not found");
     }
 
     if (existingJobApplication.userId !== userId) {
-      throw new Error('Unauthorized: Cannot delete this job application');
+      throw new Error("Unauthorized: Cannot delete this job application");
     }
 
     const { error } = await supabase
-      .from('job_applications')
+      .from("job_applications")
       .delete()
-      .eq('id', id);
+      .eq("id", id);
 
     if (error) {
       throw new Error(`Failed to delete job application: ${error.message}`);
@@ -198,33 +274,35 @@ class JobApplicationService {
   // Get job applications by status
   async getJobApplicationsByStatus(userId, status) {
     const { data: jobApplications, error } = await supabase
-      .from('job_applications')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', status)
-      .order('applied_date', { ascending: false });
+      .from("job_applications")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", status)
+      .order("applied_date", { ascending: false });
 
     if (error) {
       throw new Error(`Failed to fetch job applications: ${error.message}`);
     }
 
-    return jobApplications.map(job => this.toCamelCase(job));
+    return jobApplications.map((job) => this.toCamelCase(job));
   }
 
   // Search job applications
   async searchJobApplications(userId, query) {
     const { data: jobApplications, error } = await supabase
-      .from('job_applications')
-      .select('*')
-      .eq('user_id', userId)
-      .or(`company.ilike.%${query}%,position.ilike.%${query}%,notes.ilike.%${query}%`)
-      .order('applied_date', { ascending: false });
+      .from("job_applications")
+      .select("*")
+      .eq("user_id", userId)
+      .or(
+        `company.ilike.%${query}%,position.ilike.%${query}%,notes.ilike.%${query}%`,
+      )
+      .order("applied_date", { ascending: false });
 
     if (error) {
       throw new Error(`Failed to search job applications: ${error.message}`);
     }
 
-    return jobApplications.map(job => this.toCamelCase(job));
+    return jobApplications.map((job) => this.toCamelCase(job));
   }
 
   // Helper: Convert snake_case to camelCase
@@ -242,12 +320,18 @@ class JobApplicationService {
       tableName: obj.table_name,
       createdAt: obj.created_at,
       updatedAt: obj.updated_at,
-      statusHistory: (statusHistory || []).map(entry => ({
-        id: entry.id,
-        jobId: obj.id,
-        status: entry.status,
-        changedAt: entry.changed_at || entry.changedAt,
-      })),
+      statusHistory: [...(statusHistory || [])]
+        .sort(
+          (first, second) =>
+            new Date(first.changed_at || first.changedAt).getTime() -
+            new Date(second.changed_at || second.changedAt).getTime(),
+        )
+        .map((entry) => ({
+          id: entry.id,
+          jobId: obj.id,
+          status: entry.status,
+          changedAt: entry.changed_at || entry.changedAt,
+        })),
     };
   }
 }

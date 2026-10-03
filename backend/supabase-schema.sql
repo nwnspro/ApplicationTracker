@@ -36,6 +36,7 @@ CREATE INDEX IF NOT EXISTS idx_job_applications_applied_date ON job_applications
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE job_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_status_history ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 -- Users can only see their own job applications
@@ -62,6 +63,30 @@ CREATE POLICY "Users can delete their own job applications"
   ON job_applications
   FOR DELETE
   USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can view their own status history"
+  ON job_status_history
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM job_applications
+      WHERE job_applications.id = job_status_history.job_id
+        AND job_applications.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can insert their own status history"
+  ON job_status_history
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM job_applications
+      WHERE job_applications.id = job_status_history.job_id
+        AND job_applications.user_id = auth.uid()
+    )
+  );
 
 -- Create a function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

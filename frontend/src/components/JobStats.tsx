@@ -26,7 +26,7 @@ interface SankeyLink {
   width?: number;
 }
 
-export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
+export function JobStatsComponent({ stats }: JobStatsProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
 
@@ -43,31 +43,20 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
     const width = 1100;
     const height = 420;
 
-    const analyzeJobFlows = () => {
-      const appliedCount = jobs.filter((j) => j.status === "APPLIED").length;
-      const interviewingCount = jobs.filter((j) => j.status === "INTERVIEWING").length;
-      const rejectedCount = jobs.filter((j) => j.status === "REJECTED").length;
-      const offerCount = jobs.filter((j) => j.status === "OFFER").length;
-
-      return {
-        appliedCount: jobs.length,
-        interviewingCount,
-        rejectedCount,
-        offerCount,
-        appliedStillWaiting: appliedCount,
-        movedToInterview: interviewingCount + rejectedCount + offerCount,
-      };
+    const flows = {
+      appliedCount: stats.applied || 0,
+      interviewedCount: stats.interviewing || 0,
+      rejectedCount: stats.rejected || 0,
+      rejectedAfterInterview: stats.rejectedAfterInterview || 0,
+      rejectedWithoutInterview: stats.rejectedWithoutInterview || 0,
+      noResponseCount: stats.noResponse || 0,
     };
-
-    const flows = analyzeJobFlows();
 
     const allNodes = [
       { name: "Applied", id: 0, value: flows.appliedCount },
-      { name: "Still Waiting", id: 1, value: flows.appliedStillWaiting },
-      { name: "In Process", id: 2, value: flows.movedToInterview },
-      { name: "Interviewing", id: 3, value: flows.interviewingCount },
-      { name: "Offers", id: 4, value: flows.offerCount },
-      { name: "Rejected", id: 5, value: flows.rejectedCount },
+      { name: "Interviewed", id: 1, value: flows.interviewedCount },
+      { name: "Rejected", id: 2, value: flows.rejectedCount },
+      { name: "No Response", id: 3, value: flows.noResponseCount },
     ];
 
     const nodes: SankeyNode[] = allNodes.filter((node) => node.value > 0);
@@ -79,11 +68,10 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
     });
 
     const allLinks = [
-      { source: 0, target: 1, value: flows.appliedStillWaiting },
-      { source: 0, target: 2, value: flows.movedToInterview },
-      { source: 2, target: 3, value: flows.interviewingCount },
-      { source: 2, target: 4, value: flows.offerCount },
-      { source: 2, target: 5, value: flows.rejectedCount },
+      { source: 0, target: 1, value: flows.interviewedCount },
+      { source: 1, target: 2, value: flows.rejectedAfterInterview },
+      { source: 0, target: 2, value: flows.rejectedWithoutInterview },
+      { source: 0, target: 3, value: flows.noResponseCount },
     ];
 
     const links: SankeyLink[] = allLinks
@@ -140,14 +128,12 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
     // Color scheme - soft muted palette
     const colorScale = d3
       .scaleOrdinal()
-      .domain(["Applied", "Still Waiting", "In Process", "Interviewing", "Offers", "Rejected"])
+      .domain(["Applied", "Interviewed", "Rejected", "No Response"])
       .range([
         "#a8c4e0",
-        "#c5d8eb",
-        "#f0d080",
-        "#f5e09a",
-        "#9ecfaa",
+        "#f5d98b",
         "#e8a5a5",
+        "#c5d8eb",
       ]);
 
     // Add links
@@ -195,12 +181,12 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
       .text((d) => {
         return `${d.name} (${d.value || 0})`;
       });
-  }, [stats, jobs]);
+  }, [stats]);
 
-  const total = (stats.applied || 0) + (stats.interviewing || 0) + (stats.rejected || 0) + (stats.offer || 0);
+  const total = stats.total || 0;
   const interviewRate = total > 0 ? Math.round(((stats.interviewing || 0) / total) * 100) : 0;
-  const offerRate = total > 0 ? Math.round(((stats.offer || 0) / total) * 100) : 0;
   const rejectedRate = total > 0 ? Math.round(((stats.rejected || 0) / total) * 100) : 0;
+  const noResponseRate = total > 0 ? Math.round(((stats.noResponse || 0) / total) * 100) : 0;
 
   return (
     <div className="h-full flex flex-col">
@@ -213,7 +199,7 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
         </div>
         <div className="px-6 py-4" style={{ background: "#fdf8ec" }}>
           <div className="text-2xl font-semibold" style={{ color: "#c8a44a" }}>{stats.interviewing || 0}</div>
-          <div className="text-xs mt-0.5" style={{ color: "#c8a44a" }}>Interviewing</div>
+          <div className="text-xs mt-0.5" style={{ color: "#c8a44a" }}>Interviewed</div>
           <div className="text-xs mt-1 text-gray-400">{interviewRate}% of applications</div>
         </div>
         <div className="px-6 py-4" style={{ background: "#fdf0f0" }}>
@@ -221,10 +207,10 @@ export function JobStatsComponent({ stats, jobs = [] }: JobStatsProps) {
           <div className="text-xs mt-0.5" style={{ color: "#c87a7a" }}>Rejected</div>
           <div className="text-xs mt-1 text-gray-400">{rejectedRate}% of applications</div>
         </div>
-        <div className="px-6 py-4" style={{ background: "#eef6f0" }}>
-          <div className="text-2xl font-semibold" style={{ color: "#5fa870" }}>{stats.offer || 0}</div>
-          <div className="text-xs mt-0.5" style={{ color: "#5fa870" }}>Offers</div>
-          <div className="text-xs mt-1 text-gray-400">{offerRate}% success rate</div>
+        <div className="px-6 py-4" style={{ background: "#f3f5f7" }}>
+          <div className="text-2xl font-semibold" style={{ color: "#718096" }}>{stats.noResponse || 0}</div>
+          <div className="text-xs mt-0.5" style={{ color: "#718096" }}>No Response</div>
+          <div className="text-xs mt-1 text-gray-400">{noResponseRate}% of applications</div>
         </div>
       </div>
 
