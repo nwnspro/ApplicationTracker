@@ -189,6 +189,7 @@ export function useJobs(currentTable: string = "Table 1") {
   const [localMockJobs, setLocalMockJobs] = useState<Job[]>(mockJobs);
   const [authReady, setAuthReady] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -198,6 +199,7 @@ export function useJobs(currentTable: string = "Table 1") {
         data: { session },
       } = await supabase.auth.getSession();
       if (!isMounted) return;
+      setUserId(session?.user?.id ?? null);
       setIsGuest(!session);
       setAuthReady(true);
     };
@@ -208,6 +210,7 @@ export function useJobs(currentTable: string = "Table 1") {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
+      setUserId(session?.user?.id ?? null);
       setIsGuest(!session);
       setAuthReady(true);
     });
@@ -219,7 +222,7 @@ export function useJobs(currentTable: string = "Table 1") {
   }, []);
 
   const jobsQuery = useInfiniteQuery({
-    queryKey: ["jobs"],
+    queryKey: ["jobs", userId],
     queryFn: ({ pageParam }) => jobService.getJobs(pageParam),
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>
@@ -229,7 +232,7 @@ export function useJobs(currentTable: string = "Table 1") {
     enabled: authReady && !isGuest,
     retry: false,
     staleTime: 60_000,
-    gcTime: 5 * 60_000,
+    gcTime: 24 * 60 * 60_000,
     refetchOnWindowFocus: false,
   });
 
@@ -240,12 +243,12 @@ export function useJobs(currentTable: string = "Table 1") {
   const jobsLoading = jobsQuery.isLoading;
 
   const statsQuery = useQuery({
-    queryKey: ["jobStats", currentTable],
+    queryKey: ["jobStats", userId, currentTable],
     queryFn: () => jobService.getJobStats(currentTable),
     enabled: authReady && !isGuest,
     retry: false,
     staleTime: 60_000,
-    gcTime: 5 * 60_000,
+    gcTime: 24 * 60 * 60_000,
     refetchOnWindowFocus: false,
   });
 

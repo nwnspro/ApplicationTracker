@@ -119,14 +119,36 @@ class JobApplicationService {
   async getJobStats(userId, tableName) {
     let query = supabase
       .from("job_applications")
-      .select("status, table_name, status_history:job_status_history(status)")
+      .select("id, status, table_name")
       .eq("user_id", userId);
 
     if (tableName) query = query.eq("table_name", tableName);
 
-    const { data: applications, error } = await query;
+    const { data: applicationsResult, error } = await query;
     if (error) {
       throw new Error(`Failed to calculate job statistics: ${error.message}`);
+    }
+
+    const applications = applicationsResult || [];
+    const applicationIds = applications.map((application) => application.id);
+    const { data: history, error: historyError } = applicationIds.length
+      ? await supabase
+          .from("job_status_history")
+          .select("job_id, status")
+          .in("job_id", applicationIds)
+      : { data: [], error: null };
+
+    if (historyError) {
+      throw new Error(
+        `Failed to calculate job statistics: ${historyError.message}`,
+      );
+    }
+
+    const historyByJobId = new Map();
+    for (const entry of history || []) {
+      const entries = historyByJobId.get(entry.job_id) || [];
+      entries.push(entry.status);
+      historyByJobId.set(entry.job_id, entries);
     }
 
     const interviewStatuses = new Set([
@@ -134,23 +156,24 @@ class JobApplicationService {
       "INTERVIEW_SCHEDULED",
       "INTERVIEW_COMPLETED",
     ]);
-    const interviewed = (applications || []).filter((application) =>
-      application.status_history?.some((entry) =>
-        interviewStatuses.has(entry.status),
-      ) || interviewStatuses.has(application.status),
+    const interviewed = applications.filter(
+      (application) =>
+        historyByJobId.get(application.id)?.some((status) =>
+          interviewStatuses.has(status),
+        ) || interviewStatuses.has(application.status),
     );
-    const rejected = (applications || []).filter(
+    const rejected = applications.filter(
       (application) => application.status === "REJECTED",
     );
-    const noResponse = (applications || []).filter(
+    const noResponse = applications.filter(
       (application) =>
         application.status !== "REJECTED" &&
         !interviewed.includes(application),
     );
 
     return {
-      total: applications?.length || 0,
-      applied: applications?.length || 0,
+      total: applications.length,
+      applied: applications.length,
       interviewing: interviewed.length,
       rejected: rejected.length,
       noResponse: noResponse.length,

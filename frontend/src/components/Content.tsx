@@ -1,13 +1,8 @@
-import { Fragment, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 
 import { JobStatsComponent } from "./JobStats";
 import { TodoList } from "./TodoList";
-import {
-  JOB_STATUS_LABELS,
-  Job,
-  JobStatus,
-  NewJobInput,
-} from "../types/job";
+import { Job, JobStatus, NewJobInput } from "../types/job";
 import { Search, Frown, Plus } from "lucide-react";
 
 import { ShareMenu } from "./ShareMenu";
@@ -54,7 +49,6 @@ export function Content({
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<string>("");
   const [showSadFace, setShowSadFace] = useState(false);
-  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   // Search functionality
   const filteredJobs = useMemo(() => {
@@ -358,8 +352,8 @@ export function Content({
             {/* Render Jobs */}
             <div className="min-h-full">
               {sortedJobs.map((job, index) => (
-                <Fragment key={job.id}>
-                  <div
+                <div
+                  key={job.id}
                     className={`grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 hover:bg-gray-50 transition-colors min-w-[700px] ${
                       index % 2 === 0 ? "bg-white" : "bg-gray-50"
                     }`}
@@ -603,17 +597,6 @@ export function Content({
 
                     {/* Action Buttons */}
                     <button
-                      onClick={() =>
-                        setExpandedHistoryId(
-                          expandedHistoryId === job.id ? null : job.id,
-                        )
-                      }
-                      className="text-gray-400 hover:text-gray-600 transition-colors text-xs"
-                      title="View status history"
-                    >
-                      History
-                    </button>
-                    <button
                       onClick={() => onDeleteJob(job.id)}
                       className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-light leading-none"
                       title="Delete"
@@ -623,35 +606,7 @@ export function Content({
                   </div>
                   </div>
 
-                  {expandedHistoryId === job.id && (
-                    <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 min-w-[700px]">
-                      <div className="text-xs font-medium uppercase tracking-wide text-gray-500 mb-2">
-                        Status history
-                      </div>
-                      {job.statusHistory && job.statusHistory.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {job.statusHistory.map((entry) => (
-                            <div
-                              key={entry.id ?? `${job.id}-${entry.changedAt}`}
-                              className="rounded border border-gray-200 bg-white px-3 py-2 text-sm"
-                            >
-                              <div className="font-medium text-gray-800">
-                                {JOB_STATUS_LABELS[entry.status] ?? entry.status}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {new Date(entry.changedAt).toLocaleString()}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-gray-500">
-                          No status history recorded.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Fragment>
+                </div>
               ))}
 
               {/* Empty state when no jobs */}
@@ -667,7 +622,6 @@ export function Content({
                     <p className="text-sm">
                       Try searching for a different company
                     </p>
-                  </div>
                 </div>
               )}
 
