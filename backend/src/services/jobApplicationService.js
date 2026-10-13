@@ -131,12 +131,23 @@ class JobApplicationService {
 
     const applications = applicationsResult || [];
     const applicationIds = applications.map((application) => application.id);
-    const { data: history, error: historyError } = applicationIds.length
-      ? await supabase
-          .from("job_status_history")
-          .select("job_id, status")
-          .in("job_id", applicationIds)
-      : { data: [], error: null };
+
+    // Batch the .in() query to avoid exceeding PostgREST URL length limits
+    const BATCH_SIZE = 100;
+    let history = [];
+    let historyError = null;
+    for (let i = 0; i < applicationIds.length; i += BATCH_SIZE) {
+      const batch = applicationIds.slice(i, i + BATCH_SIZE);
+      const { data, error: batchError } = await supabase
+        .from("job_status_history")
+        .select("job_id, status")
+        .in("job_id", batch);
+      if (batchError) {
+        historyError = batchError;
+        break;
+      }
+      history = history.concat(data || []);
+    }
 
     if (historyError) {
       console.warn(
