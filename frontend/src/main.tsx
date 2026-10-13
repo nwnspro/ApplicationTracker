@@ -33,5 +33,5 @@ createRoot(document.getElementById("root")!).render(
     >
       <App />
     </PersistQueryClientProvider>
-  </StrictMode>
+  </StrictMode>,
 );

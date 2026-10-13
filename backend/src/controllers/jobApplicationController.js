@@ -9,23 +9,24 @@ class JobApplicationController {
       // Get user ID from authenticated session (middleware ensures this exists)
       const userId = req.user.id;
 
-      console.log('Creating job application for user:', userId);
-      console.log('Request body:', req.body);
+      console.log("Creating job application for user:", userId);
+      console.log("Request body:", req.body);
 
       const data = req.body;
       const jobApplication = await jobApplicationService.createJobApplication(
         userId,
-        data
+        data,
       );
 
-      console.log('Job application created successfully:', jobApplication);
+      console.log("Job application created successfully:", jobApplication);
       res.status(201).json(jobApplication);
     } catch (error) {
       console.error("Error creating job application:", error);
       console.error("Error stack:", error.stack);
       res.status(500).json({
         error: error.message || "Internal server error",
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
       });
     }
   }
@@ -40,11 +41,14 @@ class JobApplicationController {
         status,
         page: page ? parseInt(page) : 1,
         pageSize: pageSize ? parseInt(pageSize) : 50,
-        sortBy: sortBy || 'appliedDate',
-        sortOrder: sortOrder || 'desc'
+        sortBy: sortBy || "appliedDate",
+        sortOrder: sortOrder || "desc",
       };
 
-      const result = await jobApplicationService.getUserJobApplications(userId, options);
+      const result = await jobApplicationService.getUserJobApplications(
+        userId,
+        options,
+      );
       res.json(result);
     } catch (error) {
       console.error("Error getting job applications:", error);
@@ -71,9 +75,8 @@ class JobApplicationController {
       const { id } = req.params;
       const userId = req.user.id;
 
-      const jobApplication = await jobApplicationService.getJobApplicationById(
-        id
-      );
+      const jobApplication =
+        await jobApplicationService.getJobApplicationById(id);
       if (!jobApplication) {
         return res.status(404).json({ error: "Job application not found" });
       }
@@ -155,7 +158,7 @@ class JobApplicationController {
 
       const jobApplications = await jobApplicationService.searchJobApplications(
         userId,
-        q
+        q,
       );
       res.json(jobApplications);
     } catch (error) {

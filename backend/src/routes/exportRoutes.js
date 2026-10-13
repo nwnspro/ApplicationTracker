@@ -4,7 +4,7 @@ import { ExportController } from "../controllers/exportController.js";
 const router = Router();
 const exportController = new ExportController();
 
-// Note: JWT auth removed, using BetterAuth instead
+// Note: auth handled via Supabase Auth middleware
 
 router.post(
   "/google-sheets",

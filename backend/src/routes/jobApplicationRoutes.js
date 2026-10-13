@@ -9,27 +9,29 @@ const jobApplicationController = new JobApplicationController();
 router.post(
   "/",
   authenticateUser,
-  jobApplicationController.createJobApplication.bind(jobApplicationController)
+  jobApplicationController.createJobApplication.bind(jobApplicationController),
 );
 
 // Get user job applications
 router.get(
   "/",
   authenticateUser,
-  jobApplicationController.getUserJobApplications.bind(jobApplicationController)
+  jobApplicationController.getUserJobApplications.bind(
+    jobApplicationController,
+  ),
 );
 
 router.get(
   "/stats",
   authenticateUser,
-  jobApplicationController.getJobStats.bind(jobApplicationController)
+  jobApplicationController.getJobStats.bind(jobApplicationController),
 );
 
 // Search job applications
 router.get(
   "/search",
   authenticateUser,
-  jobApplicationController.searchJobApplications.bind(jobApplicationController)
+  jobApplicationController.searchJobApplications.bind(jobApplicationController),
 );
 
 // Filter by status
@@ -37,29 +39,29 @@ router.get(
   "/status/:status",
   authenticateUser,
   jobApplicationController.getJobApplicationsByStatus.bind(
-    jobApplicationController
-  )
+    jobApplicationController,
+  ),
 );
 
 // Get by ID
 router.get(
   "/:id",
   authenticateUser,
-  jobApplicationController.getJobApplicationById.bind(jobApplicationController)
+  jobApplicationController.getJobApplicationById.bind(jobApplicationController),
 );
 
 // Update job application
 router.put(
   "/:id",
   authenticateUser,
-  jobApplicationController.updateJobApplication.bind(jobApplicationController)
+  jobApplicationController.updateJobApplication.bind(jobApplicationController),
 );
 
 // Delete job application
 router.delete(
   "/:id",
   authenticateUser,
-  jobApplicationController.deleteJobApplication.bind(jobApplicationController)
+  jobApplicationController.deleteJobApplication.bind(jobApplicationController),
 );
 
 export default router;

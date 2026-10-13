@@ -329,7 +329,6 @@ export function Content({
                     <option value="APPLIED">Applied</option>
                     <option value="INTERVIEWING">Interviewing</option>
                     <option value="REJECTED">Rejected</option>
-                    <option value="OFFER">Offer</option>
                   </select>
                 </div>
 
@@ -356,10 +355,10 @@ export function Content({
               {sortedJobs.map((job, index) => (
                 <div
                   key={job.id}
-                    className={`grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 hover:bg-gray-50 transition-colors min-w-[700px] ${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    }`}
-                  >
+                  className={`grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 hover:bg-gray-50 transition-colors min-w-[700px] ${
+                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  }`}
+                >
                   {/* Date Field */}
                   <div
                     className={`p-3 border-r border-gray-100 ${
@@ -501,11 +500,6 @@ export function Content({
                               label: "Rejected",
                               color: "bg-red-100 text-red-800",
                             },
-                            {
-                              value: "OFFER",
-                              label: "Offer",
-                              color: "bg-green-100 text-green-800",
-                            },
                           ].map((status) => (
                             <div
                               key={status.value}
@@ -543,25 +537,21 @@ export function Content({
                               ? "bg-blue-100 text-blue-800"
                               : job.status === "INTERVIEWING"
                                 ? "bg-yellow-100 text-yellow-800"
-                                : job.status === "REJECTED"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-green-100 text-green-800" // OFFER
+                                : "bg-red-100 text-red-800"
                           }`}
                         >
                           {job.status === "APPLIED"
                             ? "Applied"
                             : job.status === "INTERVIEWING"
                               ? "Interviewing"
-                              : job.status === "REJECTED"
-                                ? "Rejected"
-                                : "Offer"}
+                              : "Rejected"}
                         </span>
                       </div>
                     )}
                   </div>
 
                   {/* Notes Field with Action Buttons - Clean edit style */}
-                    <div className="p-3 flex items-center gap-2">
+                  <div className="p-3 flex items-center gap-2">
                     <div
                       className="flex-1 cursor-pointer"
                       onClick={() => handleCellClick(job.id, "notes")}
@@ -606,8 +596,6 @@ export function Content({
                       −
                     </button>
                   </div>
-                  </div>
-
                 </div>
               ))}
 
@@ -624,6 +612,7 @@ export function Content({
                     <p className="text-sm">
                       Try searching for a different company
                     </p>
+                  </div>
                 </div>
               )}
 
@@ -678,7 +667,7 @@ export function Content({
   return (
     <div className="w-full max-w-[1260px] h-[calc(100vh-196px)] bg-white rounded-[20px] shadow-[0px_24px_80px_-40px_rgba(0,0,0,0.25)] overflow-hidden">
       {stats ? (
-        <JobStatsComponent stats={stats} jobs={jobs} />
+        <JobStatsComponent stats={stats} />
       ) : (
         <div className="h-full flex items-center justify-center text-sm text-gray-500">
           {statsError

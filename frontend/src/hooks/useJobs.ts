@@ -73,7 +73,7 @@ const mockJobs: Job[] = [
     id: "mock-6",
     company: "Rotorua Paradise Valley",
     position: "Principal Lion",
-    status: "OFFER",
+    status: "APPLIED",
     notes: "Lions are the only cats that live in groups called prides!",
     appliedDate: "2025-09-25",
     updatedAt: "2025-10-19",
@@ -129,7 +129,7 @@ const mockJobs: Job[] = [
     id: "mock-11",
     company: "Kiwi Birdlife Park",
     position: "Senior Kiwi",
-    status: "OFFER",
+    status: "INTERVIEWING",
     notes:
       "Kiwi lay one of the largest eggs relative to body size of any bird!",
     appliedDate: "2025-10-14",
@@ -305,12 +305,21 @@ export function useJobs(currentTable: string = "Table 1") {
 
   // Mock handlers for when user is not logged in
   const handleMockAdd = (jobData: Omit<Job, "id" | "userId" | "updatedAt">) => {
+    const mockId = `mock-${Date.now()}`;
     const newJob: Job = {
       ...jobData,
-      id: `mock-${Date.now()}`,
+      id: mockId,
       userId: "mock-user",
       updatedAt: new Date().toISOString(),
       tableName: currentTable,
+      statusHistory: [
+        {
+          id: `mock-history-${Date.now()}`,
+          jobId: mockId,
+          status: jobData.status,
+          changedAt: new Date().toISOString(),
+        },
+      ],
     };
     setLocalMockJobs((prevJobs) => [...prevJobs, newJob]);
   };
@@ -325,7 +334,23 @@ export function useJobs(currentTable: string = "Table 1") {
     setLocalMockJobs((prevJobs) =>
       prevJobs.map((job: Job) =>
         job.id === id
-          ? { ...job, ...updates, updatedAt: new Date().toISOString() }
+          ? {
+              ...job,
+              ...updates,
+              updatedAt: new Date().toISOString(),
+              statusHistory:
+                updates.status && updates.status !== job.status
+                  ? [
+                      ...(job.statusHistory || []),
+                      {
+                        id: `mock-history-${Date.now()}`,
+                        jobId: job.id,
+                        status: updates.status,
+                        changedAt: new Date().toISOString(),
+                      },
+                    ]
+                  : job.statusHistory,
+            }
           : job,
       ),
     );

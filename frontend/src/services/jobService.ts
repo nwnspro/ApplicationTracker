@@ -108,15 +108,10 @@ export const jobService = {
 
   calculateStats(jobs: Job[]): JobStats {
     const total = jobs.length;
-    const interviewStatuses = new Set([
-      "INTERVIEWING",
-      "INTERVIEW_SCHEDULED",
-      "INTERVIEW_COMPLETED",
-    ]);
     const interviewed = jobs.filter(
       (job) =>
-        interviewStatuses.has(job.status) ||
-        job.statusHistory?.some((entry) => interviewStatuses.has(entry.status)),
+        job.status === "INTERVIEWING" ||
+        job.statusHistory?.some((entry) => entry.status === "INTERVIEWING"),
     );
     const rejected = jobs.filter((job) => job.status === "REJECTED").length;
     const rejectedAfterInterview = jobs.filter(
@@ -125,13 +120,18 @@ export const jobService = {
         interviewed.some((interviewedJob) => interviewedJob.id === job.id),
     ).length;
     const rejectedWithoutInterview = rejected - rejectedAfterInterview;
+    const interviewedIds = new Set(interviewed.map((job) => job.id));
     const noResponse = jobs.filter(
-      (job) =>
-        job.status !== "REJECTED" &&
-        !interviewed.some((interviewedJob) => interviewedJob.id === job.id),
+      (job) => job.status !== "REJECTED" && !interviewedIds.has(job.id),
     ).length;
 
     return {
+      applications: jobs.map((job) => ({
+        status: job.status,
+        statusHistory: (job.statusHistory || []).map((entry) => ({
+          status: entry.status,
+        })),
+      })),
       total,
       applied: total,
       interviewing: interviewed.length,

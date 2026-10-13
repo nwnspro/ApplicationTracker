@@ -32,14 +32,8 @@ const statusOptions: readonly JobStatus[] = JOB_STATUS_VALUES;
 
 const STATUS_COLORS: Record<JobStatus, string> = {
   APPLIED: "bg-blue-100 text-blue-800",
-  INTERVIEW_SCHEDULED: "bg-yellow-100 text-yellow-800",
-  INTERVIEW_COMPLETED: "bg-purple-100 text-purple-800",
   INTERVIEWING: "bg-yellow-100 text-yellow-800",
-  OFFER: "bg-green-100 text-green-800",
-  OFFER_RECEIVED: "bg-green-100 text-green-800",
   REJECTED: "bg-red-100 text-red-800",
-  WITHDRAWN: "bg-gray-100 text-gray-800",
-  NO_RESPONSE: "bg-orange-100 text-orange-800",
 };
 
 export function JobTable({ jobs, onUpdateJob, onDeleteJob }: JobTableProps) {

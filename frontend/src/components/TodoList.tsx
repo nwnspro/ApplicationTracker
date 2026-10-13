@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { authClient } from "../lib/auth.client";
+import { supabase } from "../lib/supabase";
 import { Square } from "lucide-react";
 
 interface TodoJob {
@@ -31,8 +31,8 @@ export function TodoList({ onApplied }: TodoListProps) {
   const checkLoginAndFetchTodos = async () => {
     try {
       setLoading(true);
-      const session = await authClient.getSession();
-      const token = session?.data?.session?.token;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
       if (token) {
         setIsLoggedIn(true);
@@ -147,8 +147,8 @@ export function TodoList({ onApplied }: TodoListProps) {
 
     if (isLoggedIn) {
       try {
-        const session = await authClient.getSession();
-        const token = session?.data?.session?.token;
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
 
         if (!token) return;
 

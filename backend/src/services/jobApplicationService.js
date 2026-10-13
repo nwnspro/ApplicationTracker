@@ -139,7 +139,10 @@ class JobApplicationService {
       : { data: [], error: null };
 
     if (historyError) {
-      console.warn("Status history unavailable for statistics:", historyError.message);
+      console.warn(
+        "Status history unavailable for statistics:",
+        historyError.message,
+      );
     }
 
     const historyByJobId = new Map();
@@ -149,27 +152,30 @@ class JobApplicationService {
       historyByJobId.set(entry.job_id, entries);
     }
 
-    const interviewStatuses = new Set([
-      "INTERVIEWING",
-      "INTERVIEW_SCHEDULED",
-      "INTERVIEW_COMPLETED",
-    ]);
     const interviewed = applications.filter(
       (application) =>
-        historyByJobId.get(application.id)?.some((status) =>
-          interviewStatuses.has(status),
-        ) || interviewStatuses.has(application.status),
+        historyByJobId
+          .get(application.id)
+          ?.some((status) => status === "INTERVIEWING") ||
+        application.status === "INTERVIEWING",
     );
     const rejected = applications.filter(
       (application) => application.status === "REJECTED",
     );
+    const interviewedIds = new Set(interviewed.map((a) => a.id));
     const noResponse = applications.filter(
       (application) =>
         application.status !== "REJECTED" &&
-        !interviewed.includes(application),
+        !interviewedIds.has(application.id),
     );
 
     return {
+      applications: applications.map((application) => ({
+        status: application.status,
+        statusHistory: (historyByJobId.get(application.id) || []).map(
+          (status) => ({ status }),
+        ),
+      })),
       total: applications.length,
       applied: applications.length,
       interviewing: interviewed.length,

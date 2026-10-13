@@ -4,7 +4,7 @@ import { useJobs } from "./hooks/useJobs";
 import { exportToCSV } from "./utils/exportUtils";
 import { Header } from "./components/Header";
 import { Content } from "./components/Content";
-import { authClient } from "./lib/auth.client";
+import { supabase } from "./lib/supabase";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -72,8 +72,10 @@ function App() {
     const TODOS_STORAGE_KEY = "job_tracker_todos";
 
     try {
-      const session = await authClient.getSession();
-      const token = session?.data?.session?.token;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
       // Add to localStorage immediately (for offline or immediate display)
       const newTodo = {

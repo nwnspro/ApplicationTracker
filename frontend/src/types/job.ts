@@ -1,27 +1,15 @@
 export const JOB_STATUS_VALUES = [
   "APPLIED",
-  "INTERVIEW_SCHEDULED",
-  "INTERVIEW_COMPLETED",
   "INTERVIEWING",
-  "OFFER",
-  "OFFER_RECEIVED",
   "REJECTED",
-  "WITHDRAWN",
-  "NO_RESPONSE",
 ] as const;
 
 export type JobStatus = (typeof JOB_STATUS_VALUES)[number];
 
 export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   APPLIED: "Applied",
-  INTERVIEW_SCHEDULED: "Interview Scheduled",
-  INTERVIEW_COMPLETED: "Interview Completed",
   INTERVIEWING: "Interviewing",
-  OFFER: "Offer",
-  OFFER_RECEIVED: "Offer Received",
   REJECTED: "Rejected",
-  WITHDRAWN: "Withdrawn",
-  NO_RESPONSE: "No Response",
 };
 
 export interface StatusHistoryEntry {
@@ -54,6 +42,10 @@ export interface JobFilters {
 }
 
 export interface JobStats {
+  applications: Array<{
+    status: JobStatus;
+    statusHistory: Array<{ status: JobStatus }>;
+  }>;
   total: number;
   applied: number;
   interviewing: number;
