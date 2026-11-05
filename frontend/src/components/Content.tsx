@@ -2,8 +2,8 @@ import { useState, useMemo } from "react";
 
 import { JobStatsComponent } from "./JobStats";
 import { TodoList } from "./TodoList";
-import { Job, JobStatus, NewJobInput } from "../types/job";
-import { Search, Frown, Plus } from "lucide-react";
+import { Job, JobStatus, NewJobInput, JOB_STATUS_LABELS } from "../types/job";
+import { Search, Frown, Plus, ChevronRight, Trash2 } from "lucide-react";
 
 import { ShareMenu } from "./ShareMenu";
 import { getTableExportOptions } from "../utils/exportUtils";
@@ -51,6 +51,7 @@ export function Content({
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<string>("");
   const [showSadFace, setShowSadFace] = useState(false);
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
   // Search functionality
   const filteredJobs = useMemo(() => {
@@ -93,7 +94,7 @@ export function Content({
     try {
       const dateObj = new Date(date);
       if (isNaN(dateObj.getTime())) return date; // Return original if invalid
-      return dateObj.toISOString().split("T")[0]; // Returns YYYY-MM-DD format
+      return dateObj.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
     } catch (error) {
       return date; // Return original string if parsing fails
     }
@@ -157,9 +158,9 @@ export function Content({
             {/* Search Icon */}
             <div className="flex-shrink-0 mr-3">
               {showSadFace ? (
-                <Frown className="w-4 h-4  text-gray-400" />
+                <Frown className="w-4 h-4 text-gray-500" />
               ) : (
-                <Search className="w-4 h-4 text-gray-400" />
+                <Search className="w-4 h-4 text-gray-500" />
               )}
             </div>
 
@@ -174,7 +175,7 @@ export function Content({
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-8 px-0 py-1 bg-transparent text-black placeholder-gray-500  focus:outline-none "
+                className="w-full h-8 px-0 py-1 bg-transparent text-black placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
               />
             </div>
 
@@ -193,23 +194,24 @@ export function Content({
 
         {/* Table */}
         <div className="flex flex-col h-[calc(100%-61px)]">
-          {/* Table Header - Fixed - Responsive grid */}
-          <div className="bg-gray-100 border-b border-gray-200 flex-shrink-0 overflow-x-auto">
-            <div className="grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 min-w-[700px]">
+          {/* Table Header - Sticky */}
+          <div className="bg-gray-100 border-b border-gray-200 flex-shrink-0 overflow-x-auto sticky top-0 z-10">
+            <div className="grid grid-cols-[40px_100px_150px_150px_120px_1fr] sm:grid-cols-[40px_120px_180px_180px_150px_1fr] md:grid-cols-[40px_150px_200px_200px_180px_1fr] gap-0 min-w-[740px]">
+              <div className="p-3 border-r border-gray-200"></div>
               <button
                 onClick={() => {
                   setSortColumn("date");
                   setSortDirection(sortDirection === "asc" ? "desc" : "asc");
                 }}
-                className="p-3 font-medium text-gray-700 border-r border-gray-200 text-left hover:bg-gray-200 transition-colors"
+                className="p-3 text-sm font-semibold text-gray-700 border-r border-gray-200 text-left hover:bg-gray-200 transition-colors"
               >
                 Date{" "}
                 {sortColumn === "date" && (sortDirection === "asc" ? "↑" : "↓")}
               </button>
-              <div className="p-3 font-medium text-gray-700 border-r border-gray-200">
+              <div className="p-3 text-sm font-semibold text-gray-700 border-r border-gray-200">
                 Company
               </div>
-              <div className="p-3 font-medium text-gray-700 border-r border-gray-200">
+              <div className="p-3 text-sm font-semibold text-gray-700 border-r border-gray-200">
                 Job
               </div>
               <button
@@ -217,13 +219,13 @@ export function Content({
                   setSortColumn("status");
                   setSortDirection(sortDirection === "asc" ? "desc" : "asc");
                 }}
-                className="p-3 font-medium text-gray-700 border-r border-gray-200 text-left hover:bg-gray-200 transition-colors"
+                className="p-3 text-sm font-semibold text-gray-700 border-r border-gray-200 text-left hover:bg-gray-200 transition-colors"
               >
                 Status{" "}
                 {sortColumn === "status" &&
                   (sortDirection === "asc" ? "↑" : "↓")}
               </button>
-              <div className="p-3 font-medium text-gray-700">Notes</div>
+              <div className="p-3 text-sm font-semibold text-gray-700">Notes</div>
             </div>
           </div>
 
@@ -243,7 +245,7 @@ export function Content({
             {/* Add Job Form Row */}
             {showAddForm && (
               <div
-                className="grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 border-b border-gray-200 bg-blue-50 p-2 min-w-[700px]"
+                className="grid grid-cols-[40px_100px_150px_150px_120px_1fr] sm:grid-cols-[40px_120px_180px_180px_150px_1fr] md:grid-cols-[40px_150px_200px_200px_180px_1fr] gap-0 border-b border-gray-200 bg-blue-50 p-2 min-w-[740px]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     const dateEl = document.getElementById(
@@ -283,6 +285,9 @@ export function Content({
                   }
                 }}
               >
+                {/* Chevron placeholder */}
+                <div className="p-2 border-r border-gray-100"></div>
+
                 {/* Date Input */}
                 <div className="p-2 border-r border-gray-100">
                   <input
@@ -345,7 +350,7 @@ export function Content({
             )}
 
             {isLoadingMoreJobs && (
-              <div className="py-3 text-center text-sm text-gray-500 min-w-[700px]">
+              <div className="py-3 text-center text-sm text-gray-500 min-w-[740px]">
                 Loading more applications...
               </div>
             )}
@@ -353,12 +358,32 @@ export function Content({
             {/* Render Jobs */}
             <div className="min-h-full">
               {sortedJobs.map((job, index) => (
+                <div key={job.id}>
                 <div
-                  key={job.id}
-                  className={`grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 hover:bg-gray-50 transition-colors min-w-[700px] ${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                  className={`group grid grid-cols-[40px_100px_150px_150px_120px_1fr] sm:grid-cols-[40px_120px_180px_180px_150px_1fr] md:grid-cols-[40px_150px_200px_200px_180px_1fr] items-start gap-0 border-b border-gray-100 hover:bg-[#f5f1e8] transition-colors min-w-[740px] ${
+                    expandedRow === job.id
+                      ? "bg-[#faf7f0] border-b-0"
+                      : index % 2 === 0
+                        ? "bg-white"
+                        : "bg-gray-50"
                   }`}
                 >
+                  {/* Chevron Toggle */}
+                  <div className="p-3 border-r border-gray-100 flex justify-center">
+                    <button
+                      onClick={() =>
+                        setExpandedRow(expandedRow === job.id ? null : job.id)
+                      }
+                      aria-expanded={expandedRow === job.id}
+                      aria-label={`Show timeline for ${job.company}`}
+                      className="text-gray-500 hover:text-gray-600 transition-transform"
+                    >
+                      <ChevronRight
+                        className={`w-4 h-4 transition-transform ${expandedRow === job.id ? "rotate-90" : ""}`}
+                      />
+                    </button>
+                  </div>
+
                   {/* Date Field */}
                   <div
                     className={`p-3 border-r border-gray-100 ${
@@ -434,7 +459,7 @@ export function Content({
                         autoFocus
                       />
                     ) : (
-                      <span className="text-gray-800">{job.company}</span>
+                      <span className="text-gray-800 font-medium">{job.company}</span>
                     )}
                   </div>
 
@@ -550,8 +575,8 @@ export function Content({
                     )}
                   </div>
 
-                  {/* Notes Field with Action Buttons - Clean edit style */}
-                  <div className="p-3 flex items-center gap-2">
+                  {/* Notes Field with Action Buttons */}
+                  <div className="p-3 flex items-start gap-2">
                     <div
                       className="flex-1 cursor-pointer"
                       onClick={() => handleCellClick(job.id, "notes")}
@@ -580,22 +605,75 @@ export function Content({
                           placeholder="Add notes..."
                           autoFocus
                         />
-                      ) : (
+                      ) : job.notes ? (
                         <span className="text-gray-600 text-sm hover:text-gray-800 transition-colors border-b border-transparent hover:border-gray-200 py-1">
-                          {job.notes || "Add notes..."}
+                          {job.notes}
+                        </span>
+                      ) : (
+                        <span className="italic text-gray-400 text-sm py-1">
+                          Add notes…
                         </span>
                       )}
                     </div>
 
-                    {/* Action Buttons */}
+                    {/* Delete Button */}
                     <button
                       onClick={() => onDeleteJob(job.id)}
-                      className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-light leading-none"
+                      className="w-9 h-9 flex items-center justify-center rounded-md text-gray-500 hover:text-red-700 hover:bg-red-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-all"
                       title="Delete"
+                      aria-label={`Delete ${job.company}`}
                     >
-                      −
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+                </div>
+
+                {/* Timeline Panel */}
+                {expandedRow === job.id && (
+                  <div className="bg-[#faf7f0] border-b border-gray-100 px-6 py-4 min-w-[740px]">
+                    <div className="overflow-x-auto">
+                      <div className="flex items-start gap-0 min-w-fit">
+                        {(job.statusHistory && job.statusHistory.length > 0
+                          ? job.statusHistory
+                          : [
+                              {
+                                status: "APPLIED" as const,
+                                changedAt: job.appliedDate,
+                              },
+                            ]
+                        ).map((step, i, arr) => (
+                          <div key={i} className="flex items-start">
+                            <div className="flex flex-col items-start">
+                              <div className="flex items-center">
+                                <div
+                                  className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                                    step.status === "REJECTED"
+                                      ? "bg-red-500"
+                                      : "bg-gray-800"
+                                  }`}
+                                />
+                                {i < arr.length - 1 && (
+                                  <div className="w-24 sm:w-32 md:w-40 h-[2px] bg-gray-300 flex-shrink-0" />
+                                )}
+                              </div>
+                              <div className="mt-2">
+                                <div className="text-sm font-medium text-gray-800">
+                                  {JOB_STATUS_LABELS[step.status]}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(step.changedAt).toLocaleDateString(
+                                    "en-GB",
+                                    { day: "numeric", month: "short" },
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 </div>
               ))}
 
@@ -623,12 +701,13 @@ export function Content({
                 }).map((_, index) => (
                   <div
                     key={`empty-${index}`}
-                    className={`grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 h-12 min-w-[700px] ${
+                    className={`grid grid-cols-[40px_100px_150px_150px_120px_1fr] sm:grid-cols-[40px_120px_180px_180px_150px_1fr] md:grid-cols-[40px_150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 h-12 min-w-[740px] ${
                       (sortedJobs.length + index) % 2 === 0
                         ? "bg-white"
                         : "bg-gray-50"
                     }`}
                   >
+                    <div className="p-3 border-r border-gray-100"></div>
                     <div className="p-3 border-r border-gray-100"></div>
                     <div className="p-3 border-r border-gray-100"></div>
                     <div className="p-3 border-r border-gray-100"></div>
@@ -644,12 +723,13 @@ export function Content({
                 }).map((_, index) => (
                   <div
                     key={`extra-${index}`}
-                    className={`grid grid-cols-[100px_150px_150px_120px_1fr] sm:grid-cols-[120px_180px_180px_150px_1fr] md:grid-cols-[150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 h-12 min-w-[700px] ${
+                    className={`grid grid-cols-[40px_100px_150px_150px_120px_1fr] sm:grid-cols-[40px_120px_180px_180px_150px_1fr] md:grid-cols-[40px_150px_200px_200px_180px_1fr] gap-0 border-b border-gray-100 h-12 min-w-[740px] ${
                       (sortedJobs.length + index) % 2 === 0
                         ? "bg-white"
                         : "bg-gray-50"
                     }`}
                   >
+                    <div className="p-3 border-r border-gray-100"></div>
                     <div className="p-3 border-r border-gray-100"></div>
                     <div className="p-3 border-r border-gray-100"></div>
                     <div className="p-3 border-r border-gray-100"></div>
@@ -667,7 +747,7 @@ export function Content({
   return (
     <div className="w-full max-w-[1260px] h-[calc(100vh-196px)] bg-white rounded-[20px] shadow-[0px_24px_80px_-40px_rgba(0,0,0,0.25)] overflow-hidden">
       {stats ? (
-        <JobStatsComponent stats={stats} />
+        <JobStatsComponent stats={stats} jobs={jobs} />
       ) : (
         <div className="h-full flex items-center justify-center text-sm text-gray-500">
           {statsError

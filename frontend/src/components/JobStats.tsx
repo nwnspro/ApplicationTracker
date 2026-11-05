@@ -1,18 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import { sankey, sankeyLinkHorizontal } from "d3-sankey";
 import { ShareMenu } from "./ShareMenu";
 import { getStatsExportOptions } from "../utils/exportUtils";
-import { JobStats } from "../types/job";
+import { Job, JobStats } from "../types/job";
 import {
   SankeyData,
   SankeyLinkData,
   SankeyNodeData,
   buildSankeyData,
 } from "../utils/sankeyData";
+import { WeeklyTimeline, WeekNav, getWeekBounds } from "./WeeklyTimeline";
 
 interface JobStatsProps {
   stats: JobStats;
+  jobs: Job[];
 }
 
 type LayoutNode = SankeyNodeData & {
@@ -41,13 +43,15 @@ function percent(value: number, total: number): string {
   return `${total > 0 ? Math.round((value / total) * 100) : 0}%`;
 }
 
-export function JobStatsComponent({ stats }: JobStatsProps) {
+export function JobStatsComponent({ stats, jobs }: JobStatsProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
   const [chartWidth, setChartWidth] = useState(720);
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
+  const [statsView, setStatsView] = useState<"all" | "weekly">("all");
+  const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -194,57 +198,182 @@ export function JobStatsComponent({ stats }: JobStatsProps) {
   const rejectedRate = percent(stats.rejected || 0, total);
   const noResponseRate = percent(stats.noResponse || 0, total);
 
+  // Weekly stats — computed from jobs filtered by appliedDate in the selected week
+  const weeklyStats = useMemo(() => {
+    const ref = new Date();
+    ref.setDate(ref.getDate() + weekOffset * 7);
+    const { start, end } = getWeekBounds(ref);
+
+    const weekJobs = jobs.filter((job) => {
+      const dateStr = job.appliedDate.split("T")[0];
+      const [y, m, d] = dateStr.split("-").map(Number);
+      const applied = new Date(y, m - 1, d);
+      return applied >= start && applied <= end;
+    });
+
+    const wTotal = weekJobs.length;
+    const wInterviewing = weekJobs.filter(
+      (j) =>
+        j.status === "INTERVIEWING" ||
+        j.statusHistory?.some((h) => h.status === "INTERVIEWING"),
+    ).length;
+    const wRejected = weekJobs.filter((j) => j.status === "REJECTED").length;
+    const wNoResponse = weekJobs.filter(
+      (j) =>
+        j.status === "APPLIED" &&
+        !j.statusHistory?.some((h) => h.status === "INTERVIEWING"),
+    ).length;
+
+    return {
+      applied: wTotal,
+      interviewing: wInterviewing,
+      rejected: wRejected,
+      noResponse: wNoResponse,
+      total: wTotal,
+      interviewRate: percent(wInterviewing, wTotal),
+      rejectedRate: percent(wRejected, wTotal),
+      noResponseRate: percent(wNoResponse, wTotal),
+    };
+  }, [jobs, weekOffset]);
+
+  // Pick which stats to display in the cards
+  const ds = statsView === "weekly"
+    ? {
+        applied: weeklyStats.applied,
+        interviewing: weeklyStats.interviewing,
+        rejected: weeklyStats.rejected,
+        noResponse: weeklyStats.noResponse,
+        total: weeklyStats.total,
+        interviewRate: weeklyStats.interviewRate,
+        rejectedRate: weeklyStats.rejectedRate,
+        noResponseRate: weeklyStats.noResponseRate,
+      }
+    : {
+        applied: stats.applied || 0,
+        interviewing: stats.interviewing || 0,
+        rejected: stats.rejected || 0,
+        noResponse: stats.noResponse || 0,
+        total,
+        interviewRate,
+        rejectedRate,
+        noResponseRate,
+      };
+
   return (
     <div className="h-full flex flex-col">
-      <div className="grid grid-cols-4 gap-px border-b border-gray-100">
-        <div className="px-6 py-4" style={{ background: "#eef4fb" }}>
-          <div className="text-2xl font-semibold" style={{ color: "#6a9dc0" }}>
-            {stats.applied || 0}
+      {/* Row 1: View toggle (+ week nav when weekly) */}
+      <div className="flex items-center px-4 py-2.5 flex-shrink-0">
+        {/* Segmented toggle */}
+        <div className="flex items-center rounded-full border border-gray-200 bg-gray-50 p-0.5">
+          <button
+            onClick={() => setStatsView("all")}
+            className={`px-4 py-1 text-xs font-medium rounded-full transition-colors ${
+              statsView === "all"
+                ? "bg-gray-800 text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setStatsView("weekly")}
+            className={`px-4 py-1 text-xs font-medium rounded-full transition-colors ${
+              statsView === "weekly"
+                ? "bg-gray-800 text-white shadow-sm"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            Weekly
+          </button>
+        </div>
+
+        {/* Week navigation — only visible in weekly mode */}
+        {statsView === "weekly" && (
+          <WeekNav weekOffset={weekOffset} onWeekOffsetChange={setWeekOffset} />
+        )}
+      </div>
+
+      {/* Row 2: Stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 px-4 py-2.5 flex-shrink-0">
+        {/* Applied */}
+        <div className="bg-white border border-[#efeae0] rounded-[12px] px-3.5 py-3 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#6a9dc0]" />
+            <span className="text-[13px] font-medium text-zinc-700">Applied</span>
           </div>
-          <div className="text-xs mt-0.5" style={{ color: "#7aaac8" }}>
-            Applied
-          </div>
-          <div className="text-xs mt-1 text-gray-400">
-            {total} total tracked
+          <div className="flex items-baseline gap-2 min-h-[28px]">
+            <span className="text-[26px] font-semibold leading-none text-zinc-900">
+              {ds.applied}
+            </span>
           </div>
         </div>
-        <div className="px-6 py-4" style={{ background: "#fdf8ec" }}>
-          <div className="text-2xl font-semibold" style={{ color: "#c8a44a" }}>
-            {stats.interviewing || 0}
+
+        {/* Interviewed */}
+        <div className="bg-white border border-[#efeae0] rounded-[12px] px-3.5 py-3 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#d9a93a]" />
+            <span className="text-[13px] font-medium text-zinc-700">Interviewed</span>
           </div>
-          <div className="text-xs mt-0.5" style={{ color: "#c8a44a" }}>
-            Interviewed
-          </div>
-          <div className="text-xs mt-1 text-gray-400">
-            {interviewRate} of applications
-          </div>
-        </div>
-        <div className="px-6 py-4" style={{ background: "#fdf0f0" }}>
-          <div className="text-2xl font-semibold" style={{ color: "#c87a7a" }}>
-            {stats.rejected || 0}
-          </div>
-          <div className="text-xs mt-0.5" style={{ color: "#c87a7a" }}>
-            Rejected
-          </div>
-          <div className="text-xs mt-1 text-gray-400">
-            {rejectedRate} of applications
+          <div className="flex items-baseline gap-2 min-h-[28px]">
+            <span className="text-[26px] font-semibold leading-none text-zinc-900">
+              {ds.interviewing}
+            </span>
+            <span className="inline-block px-2 py-0.5 rounded-full text-[13px] font-semibold leading-[18px] bg-[#fdf6e3] text-[#8a6a12]">
+              {ds.interviewRate}
+            </span>
+            <span className="text-[13px] text-stone-600">
+              {ds.interviewing} of {ds.total}
+            </span>
           </div>
         </div>
-        <div className="px-6 py-4" style={{ background: "#f3f5f7" }}>
-          <div className="text-2xl font-semibold" style={{ color: "#718096" }}>
-            {stats.noResponse || 0}
+
+        {/* Rejected */}
+        <div className="bg-white border border-[#efeae0] rounded-[12px] px-3.5 py-3 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#c96b6b]" />
+            <span className="text-[13px] font-medium text-zinc-700">Rejected</span>
           </div>
-          <div className="text-xs mt-0.5" style={{ color: "#718096" }}>
-            No Response
+          <div className="flex items-baseline gap-2 min-h-[28px]">
+            <span className="text-[26px] font-semibold leading-none text-zinc-900">
+              {ds.rejected}
+            </span>
+            <span className="inline-block px-2 py-0.5 rounded-full text-[13px] font-semibold leading-[18px] bg-[#fdeeee] text-[#a43d3d]">
+              {ds.rejectedRate}
+            </span>
+            <span className="text-[13px] text-stone-600">
+              {ds.rejected} of {ds.total}
+            </span>
           </div>
-          <div className="text-xs mt-1 text-gray-400">
-            {noResponseRate} of applications
+        </div>
+
+        {/* No Response */}
+        <div className="bg-white border border-[#efeae0] rounded-[12px] px-3.5 py-3 flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#9aa6b2]" />
+            <span className="text-[13px] font-medium text-zinc-700">No Response</span>
+          </div>
+          <div className="flex items-baseline gap-2 min-h-[28px]">
+            <span className="text-[26px] font-semibold leading-none text-zinc-900">
+              {ds.noResponse}
+            </span>
+            <span className="inline-block px-2 py-0.5 rounded-full text-[13px] font-semibold leading-[18px] bg-[#f1f4f7] text-[#4b5b6b]">
+              {ds.noResponseRate}
+            </span>
+            <span className="text-[13px] text-stone-600">
+              {ds.noResponse} of {ds.total}
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col overflow-hidden px-4 pt-3 pb-2">
-        <div className="flex items-center justify-end mb-2">
+      {/* Content area */}
+      {statsView === "weekly" && (
+        <div className="flex-1 min-h-0">
+          <WeeklyTimeline jobs={jobs} weekOffset={weekOffset} />
+        </div>
+      )}
+      <div className={`flex-1 flex flex-col overflow-hidden px-4 pt-2 pb-2 ${statsView !== "all" ? "hidden" : ""}`}>
+        <div className="flex items-center justify-end mb-1">
           <ShareMenu exportOptions={getStatsExportOptions(svgElement)} />
         </div>
         <div ref={chartRef} className="relative flex-1 min-h-0 overflow-x-auto">
