@@ -2,6 +2,41 @@ import { supabase } from "../config/supabase.js";
 import { ValidationUtils } from "../utils/validation.js";
 
 class JobApplicationService {
+  normalizeStatusHistory(statusHistory, application) {
+    const latestByStatus = new Map();
+
+    for (const entry of statusHistory || []) {
+      const current = latestByStatus.get(entry.status);
+      if (
+        !current ||
+        new Date(entry.changed_at || entry.changedAt).getTime() >
+          new Date(current.changed_at || current.changedAt).getTime()
+      ) {
+        latestByStatus.set(entry.status, entry);
+      }
+    }
+
+    if (!latestByStatus.has("APPLIED")) {
+      latestByStatus.set("APPLIED", {
+        id: undefined,
+        job_id: application.id,
+        status: "APPLIED",
+        changed_at: application.applied_date,
+      });
+    }
+
+    const applied = latestByStatus.get("APPLIED");
+    const remaining = [...latestByStatus.values()]
+      .filter((entry) => entry !== applied)
+      .sort(
+        (first, second) =>
+          new Date(first.changed_at || first.changedAt).getTime() -
+          new Date(second.changed_at || second.changedAt).getTime(),
+      );
+
+    return [applied, ...remaining];
+  }
+
   // Create job application
   async createJobApplication(userId, data) {
     // Validate input data - the method returns boolean
@@ -140,7 +175,7 @@ class JobApplicationService {
       const batch = applicationIds.slice(i, i + BATCH_SIZE);
       const { data, error: batchError } = await supabase
         .from("job_status_history")
-        .select("job_id, status")
+        .select("job_id, status, changed_at")
         .in("job_id", batch);
       if (batchError) {
         historyError = batchError;
@@ -159,25 +194,15 @@ class JobApplicationService {
     const historyByJobId = new Map();
     for (const entry of history || []) {
       const entries = historyByJobId.get(entry.job_id) || [];
-      entries.push(entry.status);
+      entries.push(entry);
       historyByJobId.set(entry.job_id, entries);
     }
-
-    const completeHistory = (application) => {
-      const statuses = historyByJobId.get(application.id) || [];
-      const completeStatuses = [
-        ...(statuses.includes("APPLIED") ? [] : ["APPLIED"]),
-        ...statuses,
-        ...(statuses.at(-1) === application.status ? [] : [application.status]),
-      ];
-      return completeStatuses.map((status) => ({ status }));
-    };
 
     const interviewed = applications.filter(
       (application) =>
         historyByJobId
           .get(application.id)
-          ?.some((status) => status === "INTERVIEWING") ||
+          ?.some((entry) => entry.status === "INTERVIEWING") ||
         application.status === "INTERVIEWING",
     );
     const rejected = applications.filter(
@@ -193,7 +218,10 @@ class JobApplicationService {
     return {
       applications: applications.map((application) => ({
         status: application.status,
-        statusHistory: completeHistory(application),
+        statusHistory: this.normalizeStatusHistory(
+          historyByJobId.get(application.id) || [],
+          application,
+        ).map((entry) => ({ status: entry.status })),
       })),
       total: applications.length,
       applied: applications.length,
@@ -380,18 +408,8 @@ class JobApplicationService {
   toCamelCase(obj, statusHistory = []) {
     if (!obj) return obj;
 
-    const history = [...(statusHistory || [])];
-    if (!history.some((entry) => entry.status === "APPLIED")) {
-      history.unshift({
-        id: undefined,
-        job_id: obj.id,
-        status: "APPLIED",
-        changed_at: obj.applied_date,
-      });
-    }
-
-    const lastStatus = history[history.length - 1]?.status;
-    if (lastStatus !== obj.status) {
+    const history = this.normalizeStatusHistory(statusHistory, obj);
+    if (!history.some((entry) => entry.status === obj.status)) {
       history.push({
         id: undefined,
         job_id: obj.id,

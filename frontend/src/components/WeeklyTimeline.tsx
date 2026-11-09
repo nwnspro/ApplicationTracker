@@ -124,6 +124,8 @@ export function WeeklyTimeline({ jobs, weekOffset }: WeeklyTimelineProps) {
                                 className={`w-3 h-3 rounded-full flex-shrink-0 ${
                                   step.status === "REJECTED"
                                     ? "bg-red-500"
+                                    : step.status === "INTERVIEWING"
+                                      ? "bg-blue-500"
                                     : "bg-gray-800"
                                 }`}
                               />
@@ -155,7 +157,11 @@ export function WeeklyTimeline({ jobs, weekOffset }: WeeklyTimelineProps) {
       <div className="px-6 py-2 border-t border-gray-100 flex items-center gap-4 flex-shrink-0">
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-gray-800" />
-          <span className="text-[10px] text-gray-500">Applied / Interviewing</span>
+          <span className="text-[10px] text-gray-500">Applied</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+          <span className="text-[10px] text-gray-500">Interviewing</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-red-500" />

@@ -649,6 +649,8 @@ export function Content({
                                   className={`w-3 h-3 rounded-full flex-shrink-0 ${
                                     step.status === "REJECTED"
                                       ? "bg-red-500"
+                                      : step.status === "INTERVIEWING"
+                                        ? "bg-blue-500"
                                       : "bg-gray-800"
                                   }`}
                                 />
@@ -745,7 +747,7 @@ export function Content({
   }
 
   return (
-    <div className="w-full max-w-[1260px] h-[calc(100vh-196px)] bg-white rounded-[20px] shadow-[0px_24px_80px_-40px_rgba(0,0,0,0.25)] overflow-hidden">
+    <div className="w-full max-w-[1440px] min-h-[560px] h-[calc(100dvh-230px)] sm:h-[calc(100dvh-210px)] lg:h-[calc(100dvh-176px)] bg-white rounded-[20px] shadow-[0px_24px_80px_-40px_rgba(0,0,0,0.25)] overflow-hidden">
       {stats ? (
         <JobStatsComponent stats={stats} jobs={jobs} />
       ) : (

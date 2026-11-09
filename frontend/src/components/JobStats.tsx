@@ -57,11 +57,13 @@ export function JobStatsComponent({ stats, jobs }: JobStatsProps) {
     if (!chartRef.current) return;
 
     const updateWidth = () => {
-      setChartWidth(Math.max(360, chartRef.current?.clientWidth || 720));
+      setChartWidth(chartRef.current?.clientWidth || 720);
     };
     updateWidth();
 
-    const observer = new ResizeObserver(updateWidth);
+    const observer = new ResizeObserver(([entry]) => {
+      setChartWidth(entry.contentRect.width || 720);
+    });
     observer.observe(chartRef.current);
     return () => observer.disconnect();
   }, []);
@@ -74,9 +76,16 @@ export function JobStatsComponent({ stats, jobs }: JobStatsProps) {
     svg.selectAll("*").remove();
 
     const data: SankeyData = buildSankeyData(stats.applications || []);
-    const margin = { top: 24, right: 112, bottom: 24, left: 112 };
+    const margin = {
+      top: 24,
+      right: Math.min(144, Math.max(96, chartWidth * 0.14)),
+      bottom: 24,
+      left: Math.min(144, Math.max(96, chartWidth * 0.16)),
+    };
     const width = chartWidth;
     const height = Math.max(280, Math.min(420, width * 0.42));
+    const nodeWidth = width < 520 ? 10 : 14;
+    const nodePadding = width < 520 ? 10 : 16;
 
     svg
       .attr("width", width)
@@ -101,8 +110,8 @@ export function JobStatsComponent({ stats, jobs }: JobStatsProps) {
       .nodeId((node) => node.id)
       .nodeAlign((node) => node.level)
       .nodeSort((first, second) => first.order - second.order)
-      .nodeWidth(14)
-      .nodePadding(16)
+      .nodeWidth(nodeWidth)
+      .nodePadding(nodePadding)
       .extent([
         [margin.left, margin.top],
         [width - margin.right, height - margin.bottom],
@@ -187,7 +196,7 @@ export function JobStatsComponent({ stats, jobs }: JobStatsProps) {
       .attr("y", (node) => ((node.y0 || 0) + (node.y1 || 0)) / 2)
       .attr("dy", "0.35em")
       .attr("text-anchor", (node) => (node.level === 0 ? "end" : "start"))
-      .style("font", "12px 'Onest', sans-serif")
+      .style("font", `${width < 520 ? 10 : 12}px 'Onest', sans-serif`)
       .style("fill", "#333")
       .style("opacity", (node) => (isNodeHighlighted(node) ? 1 : 0.3))
       .text((node) => `${node.label} (${node.value})`);
@@ -376,13 +385,13 @@ export function JobStatsComponent({ stats, jobs }: JobStatsProps) {
         <div className="flex items-center justify-end mb-1">
           <ShareMenu exportOptions={getStatsExportOptions(svgElement)} />
         </div>
-        <div ref={chartRef} className="relative flex-1 min-h-0 overflow-x-auto">
+        <div ref={chartRef} className="relative flex-1 min-h-0 overflow-hidden">
           {tooltip && (
             <div className="absolute right-2 top-2 z-10 rounded bg-gray-900 px-3 py-2 text-xs text-white shadow">
               {tooltip}
             </div>
           )}
-          <svg ref={svgRef} className="block h-auto min-w-full" />
+          <svg ref={svgRef} className="block h-auto w-full" />
         </div>
       </div>
     </div>
