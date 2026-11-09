@@ -45,21 +45,21 @@ router.get(
 
 // Get by ID
 router.get(
-  "/:id",
+  "/:id([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
   authenticateUser,
   jobApplicationController.getJobApplicationById.bind(jobApplicationController),
 );
 
 // Update job application
 router.put(
-  "/:id",
+  "/:id([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
   authenticateUser,
   jobApplicationController.updateJobApplication.bind(jobApplicationController),
 );
 
 // Delete job application
 router.delete(
-  "/:id",
+  "/:id([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
   authenticateUser,
   jobApplicationController.deleteJobApplication.bind(jobApplicationController),
 );
