@@ -5,8 +5,6 @@ import { TodoList } from "./TodoList";
 import { Job, JobStatus, NewJobInput, JOB_STATUS_LABELS } from "../types/job";
 import { Search, Frown, Plus, ChevronRight, Trash2 } from "lucide-react";
 
-import { ShareMenu } from "./ShareMenu";
-import { getTableExportOptions } from "../utils/exportUtils";
 
 interface ContentProps {
   viewMode: "table" | "stats" | "todos";
@@ -15,7 +13,6 @@ interface ContentProps {
   onUpdateJob: (id: string, updates: Partial<Job>) => void;
   onDeleteJob: (id: string) => void;
   onAddJob: (jobData: NewJobInput) => void;
-  onExport: () => void;
   onLoadMore: () => void;
   hasMoreJobs: boolean | undefined;
   isLoadingMoreJobs: boolean;
@@ -168,18 +165,13 @@ export function Content({
             <div className="flex-1 relative">
               <input
                 type="text"
-                placeholder={
-                  filteredJobs.length === 0 && searchQuery
-                    ? "No records"
-                    : "Looking for anything?"
-                }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full h-8 px-0 py-1 bg-transparent text-black placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded"
               />
             </div>
 
-            {/* Add and Share Icons */}
+            {/* Add icon */}
             <div className="flex-shrink-0 ml-1 flex items-center gap-2">
               <button
                 className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -187,7 +179,6 @@ export function Content({
               >
                 <Plus className="w-4 h-4 text-gray-400 hover:text-gray-600" />
               </button>
-              <ShareMenu exportOptions={getTableExportOptions(jobs)} />
             </div>
           </div>
         </div>

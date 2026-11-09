@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Job, NewJobInput } from "./types/job";
 import { useJobs } from "./hooks/useJobs";
-import { exportToCSV } from "./utils/exportUtils";
 import { Header } from "./components/Header";
 import { Content } from "./components/Content";
 import { supabase } from "./lib/supabase";
@@ -124,10 +123,6 @@ function App() {
     setViewMode(viewMode === "todos" ? "table" : "todos");
   };
 
-  const exportData = () => {
-    exportToCSV(jobs);
-  };
-
   return (
     <div className="min-h-screen bg-[#f9f3e8]">
       {/* Main Content */}
@@ -154,7 +149,6 @@ function App() {
           onUpdateJob={handleUpdateJob}
           onDeleteJob={handleDeleteJob}
           onAddJob={handleAddJob}
-          onExport={exportData}
           onLoadMore={loadMoreJobs}
           hasMoreJobs={hasMoreJobs}
           isLoadingMoreJobs={isLoadingMoreJobs}

@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import { sankey, sankeyLinkHorizontal } from "d3-sankey";
-import { ShareMenu } from "./ShareMenu";
-import { getStatsExportOptions } from "../utils/exportUtils";
 import { Job, JobStats } from "../types/job";
 import {
   SankeyData,
@@ -46,7 +44,6 @@ function percent(value: number, total: number): string {
 export function JobStatsComponent({ stats, jobs }: JobStatsProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [svgElement, setSvgElement] = useState<SVGSVGElement | null>(null);
   const [chartWidth, setChartWidth] = useState(720);
   const [hoveredPath, setHoveredPath] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
@@ -71,7 +68,6 @@ export function JobStatsComponent({ stats, jobs }: JobStatsProps) {
   useEffect(() => {
     if (!svgRef.current) return;
 
-    setSvgElement(svgRef.current);
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
@@ -382,9 +378,7 @@ export function JobStatsComponent({ stats, jobs }: JobStatsProps) {
         </div>
       )}
       <div className={`flex-1 flex flex-col overflow-hidden px-4 pt-2 pb-2 ${statsView !== "all" ? "hidden" : ""}`}>
-        <div className="flex items-center justify-end mb-1">
-          <ShareMenu exportOptions={getStatsExportOptions(svgElement)} />
-        </div>
+        <div className="h-1" />
         <div ref={chartRef} className="relative flex-1 min-h-0 overflow-hidden">
           {tooltip && (
             <div className="absolute right-2 top-2 z-10 rounded bg-gray-900 px-3 py-2 text-xs text-white shadow">

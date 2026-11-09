@@ -111,7 +111,6 @@ export function Header({
       <div className="flex-1 h-14 px-3 bg-white/60 rounded-full outline outline-1 outline-offset-[-0.50px] outline-gray-200 flex justify-start items-center">
         <input
           type="text"
-          placeholder="Paste URL here"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           className="flex-1 h-full bg-transparent text-black placeholder-gray-500 focus:outline-none border-none px-2 text-sm sm:text-base"
