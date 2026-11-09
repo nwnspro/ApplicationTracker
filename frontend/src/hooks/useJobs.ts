@@ -287,8 +287,9 @@ export function useJobs(currentTable: string = "Table 1") {
       queryClient.invalidateQueries({ queryKey: ["jobs"] });
       queryClient.invalidateQueries({ queryKey: ["jobStats"] });
     },
-    onError: (_error: Error) => {
-      console.error("Failed to delete job", _error);
+    onError: (error: Error) => {
+      console.error("Failed to delete job", error);
+      window.alert(`Unable to delete application: ${error.message}`);
     },
   });
 

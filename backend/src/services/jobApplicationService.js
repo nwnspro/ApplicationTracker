@@ -163,6 +163,16 @@ class JobApplicationService {
       historyByJobId.set(entry.job_id, entries);
     }
 
+    const completeHistory = (application) => {
+      const statuses = historyByJobId.get(application.id) || [];
+      const completeStatuses = [
+        ...(statuses.includes("APPLIED") ? [] : ["APPLIED"]),
+        ...statuses,
+        ...(statuses.at(-1) === application.status ? [] : [application.status]),
+      ];
+      return completeStatuses.map((status) => ({ status }));
+    };
+
     const interviewed = applications.filter(
       (application) =>
         historyByJobId
@@ -183,9 +193,7 @@ class JobApplicationService {
     return {
       applications: applications.map((application) => ({
         status: application.status,
-        statusHistory: (historyByJobId.get(application.id) || []).map(
-          (status) => ({ status }),
-        ),
+        statusHistory: completeHistory(application),
       })),
       total: applications.length,
       applied: applications.length,
@@ -260,6 +268,36 @@ class JobApplicationService {
     }
 
     if (data.status && data.status !== existingJobApplication.status) {
+      const { data: existingHistory, error: existingHistoryError } =
+        await supabase
+          .from("job_status_history")
+          .select("status")
+          .eq("job_id", id);
+
+      if (existingHistoryError) {
+        throw new Error(
+          `Failed to read status history: ${existingHistoryError.message}`,
+        );
+      }
+
+      if (!(existingHistory || []).some((entry) => entry.status === "APPLIED")) {
+        const { error: appliedHistoryError } = await supabase
+          .from("job_status_history")
+          .insert([
+            {
+              job_id: id,
+              status: "APPLIED",
+              changed_at: existingJobApplication.appliedDate,
+            },
+          ]);
+
+        if (appliedHistoryError) {
+          throw new Error(
+            `Failed to append initial status history: ${appliedHistoryError.message}`,
+          );
+        }
+      }
+
       const { error: historyError } = await supabase
         .from("job_status_history")
         .insert([
@@ -288,24 +326,19 @@ class JobApplicationService {
 
   // Delete job application
   async deleteJobApplication(id, userId) {
-    // Check if job application exists and belongs to user
-    const existingJobApplication = await this.getJobApplicationById(id);
-
-    if (!existingJobApplication) {
-      throw new Error("Job application not found");
-    }
-
-    if (existingJobApplication.userId !== userId) {
-      throw new Error("Unauthorized: Cannot delete this job application");
-    }
-
-    const { error } = await supabase
+    const { data: deleted, error } = await supabase
       .from("job_applications")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select("id");
 
     if (error) {
       throw new Error(`Failed to delete job application: ${error.message}`);
+    }
+
+    if (!deleted?.length) {
+      throw new Error("Job application not found or unauthorized");
     }
   }
 
@@ -347,6 +380,26 @@ class JobApplicationService {
   toCamelCase(obj, statusHistory = []) {
     if (!obj) return obj;
 
+    const history = [...(statusHistory || [])];
+    if (!history.some((entry) => entry.status === "APPLIED")) {
+      history.unshift({
+        id: undefined,
+        job_id: obj.id,
+        status: "APPLIED",
+        changed_at: obj.applied_date,
+      });
+    }
+
+    const lastStatus = history[history.length - 1]?.status;
+    if (lastStatus !== obj.status) {
+      history.push({
+        id: undefined,
+        job_id: obj.id,
+        status: obj.status,
+        changed_at: obj.updated_at,
+      });
+    }
+
     return {
       id: obj.id,
       userId: obj.user_id,
@@ -358,7 +411,7 @@ class JobApplicationService {
       tableName: obj.table_name,
       createdAt: obj.created_at,
       updatedAt: obj.updated_at,
-      statusHistory: [...(statusHistory || [])]
+      statusHistory: history
         .sort(
           (first, second) =>
             new Date(first.changed_at || first.changedAt).getTime() -
